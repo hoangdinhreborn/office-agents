@@ -1,0 +1,42 @@
+# GRPO (Group Relative Policy Optimization) Training Configuration
+# Sized for training DeepSeek-R1 / Qwen reasoning models with local data
+
+model:
+  base_model_name: "deepseek-ai/DeepSeek-R1-Distill-Qwen-8B"
+  # Alternative lightweight: "deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B"
+  torch_dtype: "bfloat16"
+  use_4bit: true
+
+lora:
+  r: 16
+  lora_alpha: 32
+  lora_dropout: 0.05
+  target_modules:
+    - "q_proj"
+    - "k_proj"
+    - "v_proj"
+    - "o_proj"
+    - "gate_proj"
+    - "up_proj"
+    - "down_proj"
+
+grpo:
+  num_generations: 4        # Number of rollout samples evaluated per prompt
+  max_prompt_length: 1024
+  max_completion_length: 2048
+  temperature: 0.7
+  learning_rate: 5.0e-6
+  weight_decay: 0.01
+  warmup_ratio: 0.1
+  lr_scheduler_type: "cosine"
+  beta: 0.04               # KL penalty coefficient
+  per_device_train_batch_size: 1
+  gradient_accumulation_steps: 4
+  num_train_epochs: 3
+  logging_steps: 5
+  save_strategy: "epoch"
+  output_dir: "./training/outputs/grpo_deepseek_r1"
+
+datasets:
+  calendar_dataset: "./training/datasets/calendar_rl_dataset.jsonl"
+  solution_dataset: "./training/datasets/solution_rl_dataset.jsonl"

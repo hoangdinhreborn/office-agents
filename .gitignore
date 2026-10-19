@@ -1,0 +1,48 @@
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+
+# Virtual environment
+.venv/
+venv/
+env/
+
+# Environment
+.env
+backend/.env
+
+# IDE
+.vscode/
+.idea/
+.zed/
+
+# Data
+data/documents/*
+data/processed/*
+data/tokens/*
+data/emails_inbox/*
+data/calendar/*
+training/outputs/*
+!data/documents/.gitkeep
+!data/processed/.gitkeep
+!data/tokens/.gitkeep
+!data/emails_inbox/.gitkeep
+!data/calendar/.gitkeep
+!training/outputs/.gitkeep
+*.enc
+.master_key
+backend/data/tokens/*
+google_credentials.json
+client_secret*.json
+
+# Node
+node_modules/
+.next/
+out/
+
+# OS
+.DS_Store
+Thumbs.db

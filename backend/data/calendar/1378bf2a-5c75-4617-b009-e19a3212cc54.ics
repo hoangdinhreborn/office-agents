@@ -1,0 +1,30 @@
+BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Local AI Assistant//Calendar Agent//VI
+CALSCALE:GREGORIAN
+METHOD:PUBLISH
+BEGIN:VTIMEZONE
+TZID:Asia/Ho_Chi_Minh
+BEGIN:STANDARD
+DTSTART:19700101T000000
+TZOFFSETFROM:+0700
+TZOFFSETTO:+0700
+TZNAME:ICT
+END:STANDARD
+END:VTIMEZONE
+BEGIN:VEVENT
+UID:1378bf2a-5c75-4617-b009-e19a3212cc54@local-ai-assistant
+DTSTAMP:20261016T060951Z
+DTSTART;TZID=Asia/Ho_Chi_Minh:20261016T235959
+DTEND;TZID=Asia/Ho_Chi_Minh:20261016T235959
+SUMMARY:Hạn chót hoàn thành khảo sát State of the API 2026
+DESCRIPTION:Hoàn thành khảo sát về API, AI và bảo mật để có cơ hội trúng Mac Studio M5 Max, Steam Deck OLED, Nintendo Switch 2 hoặc thẻ quà tặng Amazon.
+LOCATION:http://postman.com/state-of-api/2026/survey/
+STATUS:CONFIRMED
+BEGIN:VALARM
+TRIGGER:-PT30M
+ACTION:DISPLAY
+DESCRIPTION:Nhắc hẹn: Hạn chót hoàn thành khảo sát State of the API 2026 (trước 30 phút)
+END:VALARM
+END:VEVENT
+END:VCALENDAR

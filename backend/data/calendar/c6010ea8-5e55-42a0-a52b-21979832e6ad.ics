@@ -1,0 +1,30 @@
+BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Local AI Assistant//Calendar Agent//VI
+CALSCALE:GREGORIAN
+METHOD:PUBLISH
+BEGIN:VTIMEZONE
+TZID:Asia/Ho_Chi_Minh
+BEGIN:STANDARD
+DTSTART:19700101T000000
+TZOFFSETFROM:+0700
+TZOFFSETTO:+0700
+TZNAME:ICT
+END:STANDARD
+END:VTIMEZONE
+BEGIN:VEVENT
+UID:c6010ea8-5e55-42a0-a52b-21979832e6ad@local-ai-assistant
+DTSTAMP:20261016T060955Z
+DTSTART;TZID=Asia/Ho_Chi_Minh:20261028T225500
+DTEND;TZID=Asia/Ho_Chi_Minh:20261029T005500
+SUMMARY:GitHub Universe Insider
+DESCRIPTION:A free, two-hour experience for developers featuring a live stream of the keynote from San Francisco, demos, and technical talks.
+LOCATION:Online (https://githubuniverse.com/)
+STATUS:CONFIRMED
+BEGIN:VALARM
+TRIGGER:-PT30M
+ACTION:DISPLAY
+DESCRIPTION:Nhắc hẹn: GitHub Universe Insider (trước 30 phút)
+END:VALARM
+END:VEVENT
+END:VCALENDAR

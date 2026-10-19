@@ -1,0 +1,2092 @@
+<!DOCTYPE html>
+<html lang="vi" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Local Multi-Agent AI Assistant - Framework</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              50: '#f5f3ff',
+              100: '#ede9fe',
+              500: '#7c5cff',
+              600: '#6d4df6',
+              700: '#5b3de0',
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    /* Custom Scrollbar */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
+    ::-webkit-scrollbar-thumb:hover { background: #475569; }
+
+    /* Markdown Typography */
+    .markdown-body { font-size: 0.875rem; line-height: 1.625; }
+    .dark .markdown-body { color: #e2e8f0; }
+    .light .markdown-body { color: #1e293b; }
+    .markdown-body h1 { font-size: 1.25rem; font-weight: 700; margin-top: 1rem; margin-bottom: 0.5rem; padding-bottom: 0.25rem; border-bottom: 1px solid #334155; }
+    .markdown-body h2 { font-size: 1.125rem; font-weight: 600; margin-top: 0.875rem; margin-bottom: 0.375rem; }
+    .markdown-body h3 { font-size: 1rem; font-weight: 600; margin-top: 0.75rem; margin-bottom: 0.25rem; }
+    .markdown-body p { margin-bottom: 0.625rem; }
+    .markdown-body p:last-child { margin-bottom: 0; }
+    .markdown-body ul { list-style-type: disc; padding-left: 1.25rem; margin-top: 0.375rem; margin-bottom: 0.625rem; }
+    .markdown-body ol { list-style-type: decimal; padding-left: 1.25rem; margin-top: 0.375rem; margin-bottom: 0.625rem; }
+    .markdown-body li { margin-bottom: 0.25rem; }
+    .markdown-body code { font-family: ui-monospace, monospace; font-size: 0.8125rem; background-color: #020617; color: #fcd34d; padding: 0.15rem 0.35rem; border-radius: 0.25rem; border: 1px solid #334155; }
+    .markdown-body pre { background-color: #020617; padding: 0.75rem; border-radius: 0.5rem; border: 1px solid #334155; overflow-x: auto; margin: 0.5rem 0; }
+    .markdown-body pre code { background-color: transparent; border: none; padding: 0; color: #e2e8f0; }
+    .markdown-body blockquote { border-left: 3px solid #7c5cff; padding-left: 0.75rem; margin: 0.5rem 0; font-style: italic; color: #94a3b8; }
+    .markdown-body table { width: 100%; margin: 0.625rem 0; border-collapse: collapse; font-size: 0.8125rem; }
+    .markdown-body th { background-color: #1e293b; padding: 0.5rem 0.75rem; border: 1px solid #334155; }
+    .markdown-body td { padding: 0.375rem 0.75rem; border: 1px solid #334155; }
+
+    /* View transitions */
+    .view-content { display: none; }
+    .view-content.active { display: flex; flex-direction: column; height: 100%; min-height: 0; }
+
+    /* Composer highlight effect */
+    .schedule-highlight { animation: pulseBorder 1.5s infinite; }
+    @keyframes pulseBorder {
+      0% { border-color: #10b981; }
+      50% { border-color: #34d399; }
+      100% { border-color: #10b981; }
+    }
+  </style>
+</head>
+<body class="bg-slate-950 text-slate-100 h-screen h-[100dvh] flex flex-col font-sans overflow-hidden antialiased">
+
+  <!-- ========================================== -->
+  <!-- VÙNG 1: TOPBAR                             -->
+  <!-- ========================================== -->
+  <header class="h-14 bg-slate-900 border-b border-slate-800 px-4 flex items-center justify-between z-30 flex-shrink-0">
+    <div class="flex items-center space-x-3">
+      <!-- Toggle Sidebar Button (Ctrl+B) -->
+      <button onclick="toggleSidebar()" class="text-slate-400 hover:text-white p-1.5 rounded-lg hover:bg-slate-800 transition" title="Toggle Sidebar (Ctrl+B)">
+        <i class="fa-solid fa-bars text-sm"></i>
+      </button>
+
+      <!-- Brand Logo -->
+      <div class="flex items-center space-x-2.5">
+        <div class="w-8 h-8 rounded-lg bg-gradient-to-tr from-brand-600 to-indigo-500 flex items-center justify-center text-white shadow-md">
+          <i class="fa-solid fa-brain text-sm"></i>
+        </div>
+        <div>
+          <span class="font-bold text-sm tracking-tight text-white flex items-center gap-1.5">
+            Local AI Assistant
+            <span class="text-[10px] bg-brand-500/20 text-brand-400 border border-brand-500/30 px-1.5 py-0.2 rounded font-mono">v1.2</span>
+          </span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Center: Agent Status & Model Chip -->
+    <div class="flex items-center space-x-3 text-xs">
+      <!-- Agent Status Dot & Model -->
+      <button onclick="openModelModal()" class="flex items-center space-x-2 bg-slate-950/80 hover:bg-slate-800/80 px-3 py-1.5 rounded-lg border border-slate-800 transition shadow-sm group">
+        <span id="agent-status-dot" class="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
+        <span id="topbar-model-name" class="font-mono text-slate-300 group-hover:text-white font-medium">deepseek-r1:8b · Local</span>
+        <i class="fa-solid fa-chevron-down text-[10px] text-slate-500"></i>
+      </button>
+
+      <!-- Google Workspace Status Chip -->
+      <div class="hidden sm:flex items-center space-x-1.5 bg-slate-950/80 px-2.5 py-1.5 rounded-lg border border-slate-800 text-slate-400">
+        <i class="fa-brands fa-google text-rose-400"></i>
+        <span>Gmail & Cal</span>
+      </div>
+
+      <!-- Command Palette Shortcut (Ctrl+K) -->
+      <button onclick="openCommandPalette()" class="hidden md:flex items-center space-x-1.5 bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-slate-200 px-2.5 py-1.5 rounded-lg border border-slate-700 text-xs transition">
+        <i class="fa-solid fa-magnifying-glass text-[11px]"></i>
+        <span>Tìm kiếm...</span>
+        <kbd class="bg-slate-900 text-[10px] px-1.5 py-0.5 rounded border border-slate-700 font-mono text-slate-400">Ctrl K</kbd>
+      </button>
+    </div>
+
+    <!-- Right: Notifications & Controls -->
+    <div class="flex items-center space-x-2.5">
+      <!-- Notification Bell with Dropdown -->
+      <div class="relative">
+        <button onclick="toggleNotificationDropdown()" id="notification-btn" class="relative text-slate-400 hover:text-white p-2 rounded-lg hover:bg-slate-800 transition">
+          <i class="fa-regular fa-bell text-sm"></i>
+          <span id="notification-badge" class="hidden absolute top-1 right-1 w-4 h-4 bg-rose-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center">0</span>
+        </button>
+
+        <!-- Notification Dropdown -->
+        <div id="notification-dropdown" class="hidden absolute right-0 mt-2 w-80 bg-slate-900 border border-slate-800 rounded-xl shadow-2xl z-50 overflow-hidden">
+          <div class="px-3.5 py-2.5 border-b border-slate-800 flex justify-between items-center bg-slate-950/60">
+            <span class="text-xs font-semibold text-slate-200 flex items-center gap-1.5">
+              <i class="fa-solid fa-bell text-brand-500"></i> Thông Báo & Nhắc Hẹn
+            </span>
+            <button onclick="fetchUpcomingNotifications()" class="text-[11px] text-slate-400 hover:text-white">
+              <i class="fa-solid fa-arrows-rotate"></i>
+            </button>
+          </div>
+          <div id="notification-list" class="max-h-72 overflow-y-auto divide-y divide-slate-800/60 text-xs">
+            <div class="p-4 text-center text-slate-500">Đang quét thông báo...</div>
+          </div>
+          <div class="p-2 border-t border-slate-800 bg-slate-950/40 text-center">
+            <button onclick="switchView('calendar'); toggleNotificationDropdown();" class="text-[11px] text-brand-400 hover:text-brand-300 font-medium">
+              Xem toàn bộ lịch trình →
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Theme Toggle (Dark/Light) -->
+      <button onclick="toggleTheme()" class="text-slate-400 hover:text-white p-2 rounded-lg hover:bg-slate-800 transition" title="Đổi giao diện Sáng/Tối">
+        <i id="theme-icon" class="fa-regular fa-moon text-sm"></i>
+      </button>
+
+      <!-- Settings Modal Button -->
+      <button onclick="openSettingsModal()" class="text-slate-400 hover:text-white p-2 rounded-lg hover:bg-slate-800 transition" title="Cài đặt hệ thống">
+        <i class="fa-solid fa-gear text-sm"></i>
+      </button>
+
+      <!-- User Avatar -->
+      <div class="w-7 h-7 rounded-full bg-slate-700 flex items-center justify-center text-white text-xs font-semibold border border-slate-600">
+        U
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Body Container -->
+  <div class="flex-1 flex overflow-hidden">
+
+    <!-- ========================================== -->
+    <!-- VÙNG 2: SIDEBAR (Chức năng 2 tầng)         -->
+    <!-- ========================================== -->
+    <aside id="main-sidebar" class="w-60 bg-slate-900 border-r border-slate-800 flex flex-col justify-between transition-all duration-200 z-20 flex-shrink-0">
+      <div class="p-3 space-y-4 overflow-y-auto">
+        <!-- TẦNG 1: PRIMARY NAVIGATION -->
+        <div>
+          <p class="text-[10px] font-bold text-slate-500 uppercase tracking-wider px-2 mb-1.5">Chức Năng Chính</p>
+          <nav class="space-y-0.5">
+            <button onclick="switchView('chat')" id="nav-chat" class="nav-item w-full flex items-center justify-between px-2.5 py-2 rounded-lg text-xs font-medium text-slate-300 hover:text-white hover:bg-slate-800 transition active">
+              <span class="flex items-center gap-2.5">
+                <i class="fa-regular fa-comments text-brand-400 w-4"></i>
+                <span class="sidebar-label">Hội Thoại (Chat)</span>
+              </span>
+              <kbd class="sidebar-kbd text-[9px] bg-slate-800 text-slate-500 px-1 py-0.2 rounded font-mono">^1</kbd>
+            </button>
+            <button onclick="switchView('docs')" id="nav-docs" class="nav-item w-full flex items-center justify-between px-2.5 py-2 rounded-lg text-xs font-medium text-slate-400 hover:text-white hover:bg-slate-800 transition">
+              <span class="flex items-center gap-2.5">
+                <i class="fa-solid fa-file-pdf text-indigo-400 w-4"></i>
+                <span class="sidebar-label">Tài Liệu (Docs)</span>
+              </span>
+              <kbd class="sidebar-kbd text-[9px] bg-slate-800 text-slate-500 px-1 py-0.2 rounded font-mono">^2</kbd>
+            </button>
+            <button onclick="switchView('inbox')" id="nav-inbox" class="nav-item w-full flex items-center justify-between px-2.5 py-2 rounded-lg text-xs font-medium text-slate-400 hover:text-white hover:bg-slate-800 transition">
+              <span class="flex items-center gap-2.5">
+                <i class="fa-solid fa-envelope text-rose-400 w-4"></i>
+                <span class="sidebar-label">Hộp Thư (Inbox)</span>
+              </span>
+              <kbd class="sidebar-kbd text-[9px] bg-slate-800 text-slate-500 px-1 py-0.2 rounded font-mono">^3</kbd>
+            </button>
+            <button onclick="switchView('calendar')" id="nav-calendar" class="nav-item w-full flex items-center justify-between px-2.5 py-2 rounded-lg text-xs font-medium text-slate-400 hover:text-white hover:bg-slate-800 transition">
+              <span class="flex items-center gap-2.5">
+                <i class="fa-solid fa-calendar-check text-emerald-400 w-4"></i>
+                <span class="sidebar-label">Lịch Hẹn (Calendar)</span>
+              </span>
+              <kbd class="sidebar-kbd text-[9px] bg-slate-800 text-slate-500 px-1 py-0.2 rounded font-mono">^4</kbd>
+            </button>
+            <button onclick="switchView('tasks')" id="nav-tasks" class="nav-item w-full flex items-center justify-between px-2.5 py-2 rounded-lg text-xs font-medium text-slate-400 hover:text-white hover:bg-slate-800 transition">
+              <span class="flex items-center gap-2.5">
+                <i class="fa-solid fa-list-check text-amber-400 w-4"></i>
+                <span class="sidebar-label">Công Việc (Tasks)</span>
+              </span>
+              <span id="sidebar-tasks-count" class="sidebar-label text-[10px] bg-slate-800 text-slate-400 px-1.5 py-0.2 rounded-full font-mono">0</span>
+            </button>
+            <button onclick="switchView('training')" id="nav-training" class="nav-item w-full flex items-center justify-between px-2.5 py-2 rounded-lg text-xs font-medium text-slate-400 hover:text-white hover:bg-slate-800 transition">
+              <span class="flex items-center gap-2.5">
+                <i class="fa-solid fa-dna text-purple-400 w-4"></i>
+                <span class="sidebar-label">Huấn Luyện (RL)</span>
+              </span>
+              <span id="sidebar-ready-train-badge" class="hidden text-[9px] bg-purple-500/20 text-purple-300 border border-purple-500/40 px-1.5 py-0.2 rounded-full font-semibold">Ready</span>
+            </button>
+          </nav>
+        </div>
+
+        <!-- TẦNG 2: AGENTS SHORTCUT -->
+        <div>
+          <p class="text-[10px] font-bold text-slate-500 uppercase tracking-wider px-2 mb-1.5">Tác Tử Chuyên Trách</p>
+          <nav class="space-y-0.5">
+            <button onclick="quickSelectAgent('summarizer')" class="w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg text-xs text-slate-400 hover:text-slate-200 hover:bg-slate-800/60 transition">
+              <span class="w-2 h-2 rounded-full bg-indigo-400"></span>
+              <span class="sidebar-label">Summarizer Agent</span>
+            </button>
+            <button onclick="quickSelectAgent('advisor')" class="w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg text-xs text-slate-400 hover:text-slate-200 hover:bg-slate-800/60 transition">
+              <span class="w-2 h-2 rounded-full bg-amber-400"></span>
+              <span class="sidebar-label">Advisor Agent</span>
+            </button>
+            <button onclick="quickSelectAgent('email')" class="w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg text-xs text-slate-400 hover:text-slate-200 hover:bg-slate-800/60 transition">
+              <span class="w-2 h-2 rounded-full bg-rose-400"></span>
+              <span class="sidebar-label">Email Reader Agent</span>
+            </button>
+            <button onclick="quickSelectAgent('scheduler')" class="w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg text-xs text-slate-400 hover:text-slate-200 hover:bg-slate-800/60 transition">
+              <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
+              <span class="sidebar-label">Scheduler Agent</span>
+            </button>
+          </nav>
+        </div>
+
+        <!-- TẦNG 3: CHAT SESSIONS / GẦN ĐÂY -->
+        <div class="flex-1 flex flex-col min-h-0">
+          <div class="flex items-center justify-between px-2 mb-1.5">
+            <p class="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Phiên Trò Chuyện</p>
+            <button onclick="startNewChatSession()" class="text-[11px] text-brand-400 hover:text-brand-300 font-medium flex items-center gap-1" title="Tạo cuộc trò chuyện mới">
+              <i class="fa-solid fa-plus text-[10px]"></i> Mới
+            </button>
+          </div>
+          <div id="recent-activities-list" class="space-y-1 text-xs max-h-56 overflow-y-auto pr-1">
+            <div class="px-2.5 py-1.5 text-[11px] text-slate-500 italic">Đang tải danh sách...</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- FOOTER -->
+      <div class="p-3 border-t border-slate-800 flex items-center justify-between bg-slate-950/40 text-xs">
+        <span class="text-slate-500 text-[11px] flex items-center gap-1.5">
+          <i class="fa-solid fa-shield-halved text-emerald-400"></i> Local On-Prem
+        </span>
+        <a href="/docs" target="_blank" class="text-slate-400 hover:text-brand-400 transition" title="Swagger API">
+          <i class="fa-solid fa-code"></i>
+        </a>
+      </div>
+    </aside>
+
+    <!-- ========================================== -->
+    <!-- VÙNG 3: WORKSPACE (Main Routing Area)      -->
+    <!-- ========================================== -->
+    <main class="flex-1 min-h-0 flex flex-col min-w-0 bg-slate-950 overflow-hidden relative">
+
+      <!-- ================= VIEW 1: CHAT VIEW (Mặc định) ================= -->
+      <section id="view-chat" class="view-content active flex-1 min-h-0 overflow-hidden relative flex flex-col">
+        <!-- Message History Container -->
+        <div id="chat-messages" class="flex-1 min-h-0 overflow-y-auto p-4 md:p-6 space-y-5 text-sm overscroll-contain">
+          <!-- Welcome Message -->
+          <div class="flex items-start space-x-3 max-w-3xl">
+            <div class="w-8 h-8 rounded-lg bg-brand-600 flex items-center justify-center flex-shrink-0 text-white font-bold text-xs shadow-md">
+              AI
+            </div>
+            <div class="bg-slate-900 border border-slate-800 p-4 rounded-2xl shadow-sm text-slate-200 space-y-2.5 flex-1">
+              <p class="font-medium text-white flex items-center gap-2">
+                Xin chào! Tôi là Trợ lý Multi-Agent hoạt động hoàn toàn tại Local.
+                <span class="text-[10px] bg-brand-500/20 text-brand-300 px-2 py-0.5 rounded-full font-mono">01 Local LLM</span>
+              </p>
+              <p class="text-xs text-slate-300">Bạn có thể hỏi bất kỳ câu hỏi nào, kéo thả PDF vào khung nhập để tóm tắt, yêu cầu gửi/đọc Gmail hoặc đặt lịch nhắc hẹn tự động:</p>
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1 text-xs">
+                <button onclick="quickPrompt('Tóm tắt tài liệu PDF và trích xuất các hạn chót quan trọng')" class="text-left p-2.5 rounded-xl bg-slate-800/80 hover:bg-slate-800 border border-slate-700/60 text-slate-300 transition">
+                  📄 <b>Tóm tắt PDF</b>: Phân tích 4 phần & deadline
+                </button>
+                <button onclick="quickPrompt('Đọc email mới từ sếp, nếu có sự cố hãy đề xuất giải pháp xử lý')" class="text-left p-2.5 rounded-xl bg-slate-800/80 hover:bg-slate-800 border border-slate-700/60 text-slate-300 transition">
+                  ✉️ <b>Đọc Gmail & Sự cố</b>: Lọc whitelist & đề xuất
+                </button>
+                <button onclick="quickPrompt('Tạo lịch họp nghiệm thu dự án lúc 15h30 chiều mai, nhắc trước 30 phút')" class="text-left p-2.5 rounded-xl bg-slate-800/80 hover:bg-slate-800 border border-slate-700/60 text-slate-300 transition">
+                  📅 <b>Google Calendar</b>: Trích xuất lịch & .ics
+                </button>
+                <button onclick="quickPrompt('Đề xuất ma trận giải pháp khắc phục sự cố máy chủ thanh toán bị timeout')" class="text-left p-2.5 rounded-xl bg-slate-800/80 hover:bg-slate-800 border border-slate-700/60 text-slate-300 transition">
+                  💡 <b>Advisor</b>: Root Cause & giải pháp 3 cấp
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Floating Scroll to Bottom Button -->
+        <button id="btn-scroll-bottom" onclick="scrollChatToBottom(true)" class="hidden absolute bottom-24 right-8 bg-slate-800/90 hover:bg-slate-700 text-slate-200 p-2.5 rounded-full shadow-xl border border-slate-700 text-xs transition-all duration-200 z-20 flex items-center justify-center" title="Cuộn xuống tin nhắn mới nhất">
+          <i class="fa-solid fa-arrow-down text-brand-400"></i>
+        </button>
+
+        <!-- ========================================== -->
+        <!-- VÙNG 4: COMPOSER (Khung Nhập Liệu Thích Ứng)-->
+        <!-- ========================================== -->
+        <div id="composer-container" class="p-3 md:p-4 bg-slate-900 border-t border-slate-800 z-10 flex-shrink-0">
+          <div class="max-w-4xl mx-auto space-y-2">
+            <!-- Schedule / Datetime Detected Banner (Dynamic) -->
+            <div id="composer-schedule-badge" class="hidden flex items-center justify-between bg-emerald-950/60 border border-emerald-500/40 px-3 py-1.5 rounded-lg text-xs text-emerald-300 animate-fadeIn">
+              <span class="flex items-center gap-2">
+                <i class="fa-solid fa-calendar-check text-emerald-400"></i>
+                <span>Phát hiện yêu cầu đặt lịch: <b id="schedule-preview-text">...</b></span>
+              </span>
+              <button onclick="dismissSchedulePreview()" class="text-emerald-400 hover:text-emerald-200">
+                <i class="fa-solid fa-xmark"></i>
+              </button>
+            </div>
+
+            <!-- Attached Context / File Chip -->
+            <div id="composer-attached-chip" class="hidden flex items-center gap-2 bg-slate-800 border border-slate-700 px-3 py-1 rounded-lg text-xs text-slate-300 w-fit">
+              <i class="fa-solid fa-paperclip text-brand-400"></i>
+              <span id="composer-attached-name">tập_tin.pdf</span>
+              <button onclick="clearAttachedFile()" class="text-slate-400 hover:text-rose-400 ml-1">
+                <i class="fa-solid fa-xmark"></i>
+              </button>
+            </div>
+
+            <!-- Textarea Box -->
+            <div class="relative bg-slate-950 rounded-2xl border border-slate-800 focus-within:border-brand-500 shadow-lg transition">
+              <textarea
+                id="composer-input"
+                rows="2"
+                placeholder="Hỏi gì cũng được... (Gõ '@' để liên kết tài liệu/email, kéo thả PDF vào đây)"
+                oninput="onComposerInput(this)"
+                onkeydown="onComposerKeyDown(event)"
+                class="w-full bg-transparent p-3.5 text-sm text-slate-100 placeholder-slate-500 focus:outline-none resize-none max-h-48"
+              ></textarea>
+
+              <!-- Toolbar Bottom -->
+              <div class="flex items-center justify-between px-3 pb-2.5 pt-1 text-xs">
+                <div class="flex items-center space-x-1.5">
+                  <!-- Attach File Button -->
+                  <label class="cursor-pointer text-slate-400 hover:text-brand-400 hover:bg-slate-800 p-1.5 rounded-lg transition" title="Đính kèm file PDF">
+                    <i class="fa-solid fa-paperclip"></i>
+                    <input type="file" id="composer-file-input" accept=".pdf" class="hidden" onchange="onFileSelected(this)">
+                  </label>
+
+                  <!-- Agent Selector Dropdown -->
+                  <select id="composer-agent-select" class="bg-slate-900 border border-slate-800 hover:border-slate-700 text-slate-300 text-xs rounded-lg px-2.5 py-1 focus:outline-none focus:border-brand-500 transition">
+                    <option value="auto">🤖 Agent: Tự Động (Auto)</option>
+                    <option value="summarizer">📝 Summarizer Agent</option>
+                    <option value="advisor">💡 Advisor Agent</option>
+                    <option value="email">📧 Email Reader Agent</option>
+                    <option value="scheduler">📆 Scheduler Agent</option>
+                  </select>
+
+                  <!-- Context Picker -->
+                  <button type="button" onclick="openContextModal()" class="text-slate-400 hover:text-slate-200 hover:bg-slate-800 px-2 py-1 rounded-lg border border-transparent hover:border-slate-700 flex items-center gap-1 transition" title="Chọn ngữ cảnh">
+                    <i class="fa-regular fa-file-lines"></i>
+                    <span class="hidden sm:inline">Ngữ cảnh</span>
+                  </button>
+
+                  <!-- Voice Input (Web Speech API) -->
+                  <button type="button" onclick="toggleVoiceInput()" id="btn-voice-input" class="text-slate-400 hover:text-brand-400 hover:bg-slate-800 p-1.5 rounded-lg transition" title="Nhập giọng nói">
+                    <i class="fa-solid fa-microphone"></i>
+                  </button>
+                </div>
+
+                <!-- Right Send / Stop Button -->
+                <div class="flex items-center space-x-2">
+                  <button
+                    id="composer-send-btn"
+                    onclick="handleComposerSubmit()"
+                    class="bg-brand-600 hover:bg-brand-500 text-white px-3.5 py-1.5 rounded-xl font-medium text-xs flex items-center gap-1.5 shadow-md shadow-brand-600/20 transition active:scale-95"
+                  >
+                    <span>Gửi</span>
+                    <i class="fa-solid fa-arrow-up text-xs"></i>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================= VIEW 2: DOCUMENTS VIEW ================= -->
+      <section id="view-docs" class="view-content flex-1 overflow-y-auto p-6 space-y-6">
+        <div class="flex flex-wrap items-center justify-between gap-4 border-b border-slate-800 pb-4">
+          <div>
+            <h2 class="text-lg font-bold text-white flex items-center gap-2">
+              <i class="fa-solid fa-file-pdf text-indigo-400"></i> Quản Lý & Tóm Tắt Tài Liệu Chuẩn PDF
+            </h2>
+            <p class="text-xs text-slate-400">Hỗ trợ trích xuất văn bản PyMuPDF, tóm tắt điều hành 4 phần và nhận diện mốc thời gian.</p>
+          </div>
+          <div class="flex items-center space-x-2">
+            <label class="cursor-pointer bg-brand-600 hover:bg-brand-500 text-white text-xs px-3.5 py-2 rounded-xl font-semibold flex items-center gap-1.5 shadow transition">
+              <i class="fa-solid fa-cloud-arrow-up"></i> Tải Lên PDF Mới
+              <input type="file" id="docs-upload-input" accept=".pdf" class="hidden" onchange="uploadPdfDocument(this)">
+            </label>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <!-- Left: PDF List -->
+          <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 space-y-3">
+            <h3 class="text-xs font-bold text-slate-400 uppercase tracking-wider">Danh Sách Tài Liệu</h3>
+            <div id="docs-list-container" class="space-y-2 max-h-[500px] overflow-y-auto">
+              <div class="p-6 text-center text-slate-500 text-xs">Chưa có tài liệu nào. Bấm "Tải Lên PDF Mới" để bắt đầu.</div>
+            </div>
+          </div>
+
+          <!-- Right: Document Detail Pane -->
+          <div class="lg:col-span-2 bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-4">
+            <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+              <div>
+                <h3 id="selected-doc-title" class="font-bold text-sm text-white">Chưa chọn tài liệu</h3>
+                <span id="selected-doc-meta" class="text-xs text-slate-400">Chọn một tài liệu bên trái để xem nội dung</span>
+              </div>
+              <div id="selected-doc-actions" class="hidden flex items-center space-x-2">
+                <button onclick="reSummarizeSelectedDoc()" class="bg-indigo-600/30 hover:bg-indigo-600/50 text-indigo-300 border border-indigo-500/30 text-xs px-2.5 py-1 rounded-lg">
+                  <i class="fa-solid fa-rotate-right mr-1"></i> Tóm tắt lại
+                </button>
+              </div>
+            </div>
+
+            <!-- Detail Tabs -->
+            <div class="flex space-x-2 border-b border-slate-800 text-xs">
+              <button onclick="switchDocTab('summary')" id="doc-tab-btn-summary" class="px-3 py-2 font-medium border-b-2 border-brand-500 text-brand-400">Tóm Tắt Điều Hành</button>
+              <button onclick="switchDocTab('deadlines')" id="doc-tab-btn-deadlines" class="px-3 py-2 font-medium border-b-2 border-transparent text-slate-400 hover:text-white">Mốc Thời Gian & Hạn Chót</button>
+              <button onclick="switchDocTab('raw')" id="doc-tab-btn-raw" class="px-3 py-2 font-medium border-b-2 border-transparent text-slate-400 hover:text-white">Văn Bản Trích Xuất</button>
+            </div>
+
+            <div id="doc-tab-summary" class="markdown-body text-xs min-h-[250px] p-2 text-slate-300">
+              Chưa có bản tóm tắt nào.
+            </div>
+            <div id="doc-tab-deadlines" class="hidden space-y-2 min-h-[250px]">
+              <div id="doc-deadlines-container" class="space-y-2"></div>
+            </div>
+            <div id="doc-tab-raw" class="hidden min-h-[250px] p-2">
+              <pre id="doc-raw-text" class="text-xs text-slate-400 font-mono whitespace-pre-wrap max-h-96 overflow-y-auto">Chưa có văn bản.</pre>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================= VIEW 3: INBOX VIEW ================= -->
+      <section id="view-inbox" class="view-content flex-1 overflow-y-auto p-6 space-y-6">
+        <div class="flex flex-wrap items-center justify-between gap-4 border-b border-slate-800 pb-4">
+          <div>
+            <h2 class="text-lg font-bold text-white flex items-center gap-2">
+              <i class="fa-solid fa-envelope text-rose-400"></i> Hộp Thư & Quét Email Gmail API v1
+            </h2>
+            <p class="text-xs text-slate-400">Đọc email theo nhãn Gmail, lọc whitelist người gửi, soạn & gửi thư bảo mật.</p>
+          </div>
+          <div class="flex items-center space-x-2">
+            <button onclick="triggerEmailPollNow()" class="bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs px-3 py-2 rounded-xl border border-slate-700 flex items-center gap-1.5 transition">
+              <i class="fa-solid fa-rotate"></i> Quét Ngầm Outbound
+            </button>
+            <button onclick="openSendEmailModal()" class="bg-rose-600 hover:bg-rose-500 text-white text-xs px-3.5 py-2 rounded-xl font-semibold flex items-center gap-1.5 shadow transition">
+              <i class="fa-solid fa-paper-plane"></i> Soạn Thư Mới
+            </button>
+          </div>
+        </div>
+
+        <!-- Filter bar -->
+        <div class="bg-slate-900 border border-slate-800 rounded-xl p-3 flex flex-wrap items-center gap-3 text-xs">
+          <div class="flex items-center gap-2">
+            <span class="text-slate-400">Nhãn Gmail:</span>
+            <select id="inbox-label-select" class="bg-slate-950 border border-slate-800 text-slate-200 rounded-lg px-2.5 py-1">
+              <option value="INBOX">INBOX</option>
+              <option value="STARRED">STARRED</option>
+              <option value="IMPORTANT">IMPORTANT</option>
+              <option value="SENT">SENT</option>
+            </select>
+          </div>
+          <div class="flex items-center gap-2 flex-1 min-w-[200px]">
+            <span class="text-slate-400">Whitelist:</span>
+            <input type="text" id="inbox-whitelist-input" placeholder="boss@company.com, client@partner.com" class="w-full bg-slate-950 border border-slate-800 text-slate-200 rounded-lg px-2.5 py-1 focus:outline-none focus:border-brand-500">
+          </div>
+          <label class="flex items-center gap-1.5 text-slate-300 cursor-pointer">
+            <input type="checkbox" id="inbox-unread-only" class="rounded bg-slate-950 border-slate-800 text-brand-600">
+            <span>Chỉ chưa đọc</span>
+          </label>
+          <button onclick="scanInboxEmails()" id="btn-scan-inbox" class="bg-brand-600 hover:bg-brand-500 text-white px-3 py-1.5 rounded-lg font-medium transition">
+            <i class="fa-solid fa-magnifying-glass mr-1"></i> Quét Email
+          </button>
+        </div>
+
+        <!-- Two Column Email Reader -->
+        <div class="grid grid-cols-1 lg:grid-cols-5 gap-6">
+          <!-- Email List (2 cols) -->
+          <div class="lg:col-span-2 bg-slate-900 border border-slate-800 rounded-2xl p-4 space-y-3">
+            <h3 class="text-xs font-bold text-slate-400 uppercase tracking-wider flex justify-between items-center">
+              <span>Danh Sách Thư</span>
+              <span id="inbox-email-count" class="text-brand-400 font-mono">0 thư</span>
+            </h3>
+            <div id="inbox-email-list" class="space-y-2 max-h-[550px] overflow-y-auto">
+              <div class="p-8 text-center text-slate-500 text-xs">Bấm "Quét Email" để nạp hộp thư.</div>
+            </div>
+          </div>
+
+          <!-- Email Detail Pane (3 cols) -->
+          <div class="lg:col-span-3 bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-4">
+            <div id="email-detail-empty" class="p-16 text-center text-slate-500 text-xs">
+              <i class="fa-regular fa-envelope-open text-4xl mb-3 text-slate-600"></i>
+              <p>Chọn một email bên trái để xem nội dung chi tiết & hành động AI.</p>
+            </div>
+            <div id="email-detail-container" class="hidden space-y-4">
+              <div class="border-b border-slate-800 pb-3 flex justify-between items-start">
+                <div>
+                  <h3 id="email-detail-subject" class="font-bold text-sm text-white">...</h3>
+                  <p class="text-xs text-slate-400 mt-1">Từ: <span id="email-detail-sender" class="text-sky-300 font-medium">...</span></p>
+                  <p id="email-detail-time" class="text-[11px] text-slate-500 font-mono mt-0.5">...</p>
+                </div>
+                <span id="email-detail-urgency" class="text-xs px-2.5 py-0.5 rounded-full bg-slate-800 text-slate-300">Bình thường</span>
+              </div>
+
+              <!-- Quick Action Bar -->
+              <div class="flex items-center space-x-2 pt-1 border-b border-slate-800 pb-3">
+                <button onclick="aiSummarizeCurrentEmail()" class="bg-indigo-600/30 hover:bg-indigo-600/50 text-indigo-300 border border-indigo-500/30 text-xs px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition">
+                  <i class="fa-solid fa-wand-magic-sparkles"></i> 📝 Tóm Tắt AI
+                </button>
+                <button onclick="aiCreateCalendarFromCurrentEmail()" class="bg-emerald-600/30 hover:bg-emerald-600/50 text-emerald-300 border border-emerald-500/30 text-xs px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition">
+                  <i class="fa-solid fa-calendar-plus"></i> 📅 Tạo Lịch
+                </button>
+                <button onclick="aiProposeSolutionFromCurrentEmail()" class="bg-amber-600/30 hover:bg-amber-600/50 text-amber-300 border border-amber-500/30 text-xs px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition">
+                  <i class="fa-solid fa-lightbulb"></i> 💡 Đề Xuất Sự Cố
+                </button>
+              </div>
+
+              <div class="space-y-2">
+                <h4 class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Nội Dung Thư:</h4>
+                <div id="email-detail-body" class="bg-slate-950 p-4 rounded-xl text-xs text-slate-300 font-sans whitespace-pre-wrap max-h-96 overflow-y-auto border border-slate-800/80 leading-relaxed">
+                  ...
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================= VIEW 4: CALENDAR VIEW ================= -->
+      <section id="view-calendar" class="view-content flex-1 overflow-y-auto p-6 space-y-6">
+        <div class="flex flex-wrap items-center justify-between gap-4 border-b border-slate-800 pb-4">
+          <div>
+            <h2 class="text-lg font-bold text-white flex items-center gap-2">
+              <i class="fa-solid fa-calendar-check text-emerald-400"></i> Quản Lý Lịch Trình & Google Calendar
+            </h2>
+            <p class="text-xs text-slate-400">Đồng bộ tự động lên Google Calendar (OAuth 2.0) và tạo file .ICS chuẩn RFC-5545 kèm chuông nhắc trước.</p>
+          </div>
+          <div class="flex items-center space-x-2">
+            <button onclick="openCreateEventModal()" class="bg-emerald-600 hover:bg-emerald-500 text-white text-xs px-3.5 py-2 rounded-xl font-semibold flex items-center gap-1.5 shadow transition">
+              <i class="fa-solid fa-plus"></i> Tạo Sự Kiện Mới
+            </button>
+          </div>
+        </div>
+
+        <!-- Upcoming Alert Banner -->
+        <div id="calendar-upcoming-banner" class="bg-gradient-to-r from-emerald-950/70 to-slate-900 border border-emerald-500/40 rounded-2xl p-4 flex items-center justify-between shadow-md">
+          <div class="flex items-center space-x-3.5">
+            <div class="w-10 h-10 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center text-lg border border-emerald-500/30">
+              <i class="fa-regular fa-bell"></i>
+            </div>
+            <div>
+              <h4 id="cal-banner-title" class="font-bold text-sm text-white">Chưa có sự kiện khẩn cấp nào sắp diễn ra</h4>
+              <p id="cal-banner-desc" class="text-xs text-slate-300">Hệ thống sẽ tự động quét và phát chuông báo khi có sự kiện trong vòng 30 phút tới.</p>
+            </div>
+          </div>
+          <span id="cal-banner-countdown" class="text-xs font-mono bg-slate-950/80 text-emerald-300 px-3 py-1.5 rounded-lg border border-emerald-500/30">Hệ thống sẵn sàng</span>
+        </div>
+
+        <!-- Quick Event Creator via Prompt -->
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 space-y-3">
+          <h3 class="text-xs font-bold text-slate-300 flex items-center gap-1.5">
+            <i class="fa-solid fa-wand-magic-sparkles text-brand-400"></i> Lên Lịch Tự Do Bằng Ngôn Ngữ Tự Nhiên
+          </h3>
+          <div class="flex gap-2">
+            <input type="text" id="cal-quick-prompt" placeholder="VD: Họp rà soát tiến độ với khách hàng lúc 9h30 sáng thứ 5 tuần tới tại phòng A, nhắc trước 30 phút" class="flex-1 bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none focus:border-emerald-500">
+            <button onclick="quickScheduleFromPrompt()" id="btn-quick-sched" class="bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2 rounded-xl text-xs font-semibold transition flex items-center gap-1.5">
+              <span>Lên Lịch Ngay</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Calendar Events Table -->
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-4">
+          <h3 class="text-xs font-bold text-slate-400 uppercase tracking-wider flex justify-between items-center">
+            <span>Danh Sách Sự Kiện Đã Đặt</span>
+            <button onclick="loadCalendarEvents(1)" class="text-slate-400 hover:text-white text-xs">
+              <i class="fa-solid fa-rotate-right mr-1"></i> Làm mới
+            </button>
+          </h3>
+          <div class="overflow-x-auto">
+            <table class="w-full text-left text-xs">
+              <thead class="bg-slate-950 text-slate-400 uppercase text-[10px] tracking-wider">
+                <tr>
+                  <th class="p-3 rounded-l-lg">Tiêu Đề</th>
+                  <th class="p-3">Bắt Đầu</th>
+                  <th class="p-3">Kết Thúc</th>
+                  <th class="p-3">Chuông Nhắc</th>
+                  <th class="p-3">Địa Điểm</th>
+                  <th class="p-3">Trạng Thái Đám Mây</th>
+                  <th class="p-3 text-right rounded-r-lg">File .ICS</th>
+                </tr>
+              </thead>
+              <tbody id="cal-events-tbody" class="divide-y divide-slate-800 text-slate-300">
+                <tr><td colspan="7" class="p-6 text-center text-slate-500">Đang tải lịch trình...</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div id="cal-events-pagination" class="pt-2"></div>
+        </div>
+      </section>
+
+      <!-- ================= VIEW 5: TASKS VIEW ================= -->
+      <section id="view-tasks" class="view-content flex-1 overflow-y-auto p-6 space-y-6">
+        <div class="flex flex-wrap items-center justify-between gap-4 border-b border-slate-800 pb-4">
+          <div>
+            <h2 class="text-lg font-bold text-white flex items-center gap-2">
+              <i class="fa-solid fa-list-check text-amber-400"></i> Danh Sách Công Việc (Tasks)
+            </h2>
+            <p class="text-xs text-slate-400">Tự động tổng hợp và phân loại công việc từ Email, tài liệu PDF và Prompt người dùng.</p>
+          </div>
+          <div class="flex items-center space-x-2">
+            <button onclick="openAddTaskModal()" class="bg-amber-600 hover:bg-amber-500 text-white text-xs px-3.5 py-2 rounded-xl font-semibold flex items-center gap-1.5 shadow transition">
+              <i class="fa-solid fa-plus"></i> Thêm Công Việc
+            </button>
+          </div>
+        </div>
+
+        <!-- Progress Summary Cards -->
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div class="bg-slate-900 border border-slate-800 rounded-xl p-4 flex items-center justify-between">
+            <div>
+              <p class="text-xs text-slate-400">Tổng Số Việc</p>
+              <h3 id="task-stat-total" class="text-xl font-bold text-white mt-1">0</h3>
+            </div>
+            <i class="fa-solid fa-list text-2xl text-slate-600"></i>
+          </div>
+          <div class="bg-slate-900 border border-slate-800 rounded-xl p-4 flex items-center justify-between">
+            <div>
+              <p class="text-xs text-slate-400">Đang Chờ Xử Lý</p>
+              <h3 id="task-stat-pending" class="text-xl font-bold text-amber-400 mt-1">0</h3>
+            </div>
+            <i class="fa-solid fa-clock text-2xl text-amber-500/40"></i>
+          </div>
+          <div class="bg-slate-900 border border-slate-800 rounded-xl p-4 flex items-center justify-between">
+            <div>
+              <p class="text-xs text-slate-400">Đã Hoàn Thành</p>
+              <h3 id="task-stat-completed" class="text-xl font-bold text-emerald-400 mt-1">0</h3>
+            </div>
+            <i class="fa-solid fa-circle-check text-2xl text-emerald-500/40"></i>
+          </div>
+        </div>
+
+        <!-- Filter bar -->
+        <div class="flex flex-wrap items-center justify-between gap-3 bg-slate-900 border border-slate-800 rounded-xl p-3 text-xs">
+          <div class="flex items-center space-x-2">
+            <span class="text-slate-400">Lọc nguồn:</span>
+            <button onclick="filterTasks('all')" class="task-filter-btn active px-2.5 py-1 rounded-lg bg-brand-600 text-white font-medium" id="task-filter-all">Tất cả</button>
+            <button onclick="filterTasks('email')" class="task-filter-btn px-2.5 py-1 rounded-lg bg-slate-800 text-slate-300 hover:text-white" id="task-filter-email">📧 Email</button>
+            <button onclick="filterTasks('pdf')" class="task-filter-btn px-2.5 py-1 rounded-lg bg-slate-800 text-slate-300 hover:text-white" id="task-filter-pdf">📄 PDF</button>
+            <button onclick="filterTasks('prompt')" class="task-filter-btn px-2.5 py-1 rounded-lg bg-slate-800 text-slate-300 hover:text-white" id="task-filter-prompt">💬 Prompt</button>
+          </div>
+          <div class="flex items-center space-x-2">
+            <span class="text-slate-400">Trạng thái:</span>
+            <select id="task-status-filter" onchange="loadTasks()" class="bg-slate-950 border border-slate-800 text-slate-300 rounded-lg px-2 py-1">
+              <option value="all">Tất cả</option>
+              <option value="pending" selected>Đang chờ</option>
+              <option value="completed">Đã xong</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Tasks Grouped Lists -->
+        <div class="space-y-6">
+          <!-- Today -->
+          <div class="space-y-3">
+            <h3 class="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2">
+              <span class="w-2 h-2 rounded-full bg-rose-400"></span> Hôm Nay (Today)
+            </h3>
+            <div id="tasks-list-today" class="space-y-2">
+              <div class="p-3 rounded-xl bg-slate-900/50 border border-slate-800 text-xs text-slate-500 italic">Không có công việc nào hôm nay.</div>
+            </div>
+          </div>
+
+          <!-- This Week -->
+          <div class="space-y-3">
+            <h3 class="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2">
+              <span class="w-2 h-2 rounded-full bg-amber-400"></span> Tuần Này (This Week)
+            </h3>
+            <div id="tasks-list-this-week" class="space-y-2">
+              <div class="p-3 rounded-xl bg-slate-900/50 border border-slate-800 text-xs text-slate-500 italic">Không có công việc nào trong tuần này.</div>
+            </div>
+          </div>
+
+          <!-- Other / Future -->
+          <div class="space-y-3">
+            <h3 class="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2">
+              <span class="w-2 h-2 rounded-full bg-slate-400"></span> Khác / Chưa Có Hạn
+            </h3>
+            <div id="tasks-list-other" class="space-y-2">
+              <div class="p-3 rounded-xl bg-slate-900/50 border border-slate-800 text-xs text-slate-500 italic">Chưa có công việc nào.</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================= VIEW 6: TRAINING VIEW ================= -->
+      <section id="view-training" class="view-content flex-1 overflow-y-auto p-6 space-y-6">
+        <div class="flex flex-wrap items-center justify-between gap-4 border-b border-slate-800 pb-4">
+          <div>
+            <h2 class="text-lg font-bold text-white flex items-center gap-2">
+              <i class="fa-solid fa-dna text-purple-400"></i> Huấn Luyện Học Tăng Cường (Reinforcement Learning / DPO)
+            </h2>
+            <p class="text-xs text-slate-400">Thu thập phản hồi con người (Human Feedback), tạo cặp chosen/rejected và fine-tune mô hình cục bộ.</p>
+          </div>
+          <div class="flex items-center space-x-2">
+            <button onclick="triggerDpoTraining()" id="btn-train-dpo" class="bg-purple-600 hover:bg-purple-500 text-white text-xs px-3.5 py-2 rounded-xl font-semibold flex items-center gap-1.5 shadow transition">
+              <i class="fa-solid fa-fire"></i> Train DPO Ngay
+            </button>
+            <button onclick="exportDpoDatasetFile()" class="bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs px-3.5 py-2 rounded-xl border border-slate-700 font-semibold flex items-center gap-1.5 shadow transition">
+              <i class="fa-solid fa-download"></i> Xuất JSONL
+            </button>
+            <button onclick="reloadModelWeightsAction()" class="bg-slate-800 hover:bg-slate-700 text-emerald-400 text-xs px-3.5 py-2 rounded-xl border border-slate-700 font-semibold flex items-center gap-1.5 shadow transition">
+              <i class="fa-solid fa-rotate"></i> Reload Model
+            </button>
+          </div>
+        </div>
+
+        <!-- Metrics Row -->
+        <div class="grid grid-cols-1 sm:grid-cols-4 gap-4">
+          <div class="bg-slate-900 border border-slate-800 rounded-xl p-4">
+            <p class="text-xs text-slate-400">Tổng Phản Hồi</p>
+            <h3 id="stat-total-fb" class="text-xl font-bold text-white mt-1">0</h3>
+          </div>
+          <div class="bg-slate-900 border border-slate-800 rounded-xl p-4">
+            <p class="text-xs text-slate-400">Đánh Giá Tích Cực (👍)</p>
+            <h3 id="stat-positive-fb" class="text-xl font-bold text-emerald-400 mt-1">0</h3>
+          </div>
+          <div class="bg-slate-900 border border-slate-800 rounded-xl p-4">
+            <p class="text-xs text-slate-400">Đánh Giá Tiêu Cực (👎)</p>
+            <h3 id="stat-negative-fb" class="text-xl font-bold text-rose-400 mt-1">0</h3>
+          </div>
+          <div class="bg-slate-900 border border-slate-800 rounded-xl p-4">
+            <p class="text-xs text-slate-400">Preference Pairs (DPO)</p>
+            <h3 id="stat-corrections-fb" class="text-xl font-bold text-purple-400 mt-1">0</h3>
+          </div>
+        </div>
+
+        <!-- Live Training Console -->
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-3 font-mono text-xs">
+          <div class="flex items-center justify-between border-b border-slate-800 pb-2 text-slate-400">
+            <span class="flex items-center gap-2">
+              <i class="fa-solid fa-terminal text-purple-400"></i> Tiến Trình Huấn Luyện (Training Log)
+            </span>
+            <span id="training-status-text" class="text-slate-500">Chờ khởi chạy...</span>
+          </div>
+          <div id="training-console-logs" class="bg-slate-950 p-4 rounded-xl space-y-1.5 text-slate-300 min-h-[140px] max-h-60 overflow-y-auto border border-slate-800/80">
+            <p class="text-slate-500">> Sẵn sàng thu nhận dữ liệu feedback. Nhấn [Train DPO Ngay] để kích hoạt chu trình.</p>
+          </div>
+        </div>
+
+        <!-- Feedback History Table -->
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-4">
+          <h3 class="text-xs font-bold text-slate-400 uppercase tracking-wider flex justify-between items-center">
+            <span>Lịch Sử Phản Hồi Đã Ghi Nhận</span>
+            <button onclick="loadFeedbackList(1)" class="text-slate-400 hover:text-white text-xs">
+              <i class="fa-solid fa-rotate-right mr-1"></i> Làm mới
+            </button>
+          </h3>
+          <div class="overflow-x-auto">
+            <table class="w-full text-left text-xs">
+              <thead class="bg-slate-950 text-slate-400 uppercase text-[10px] tracking-wider">
+                <tr>
+                  <th class="p-3 rounded-l-lg">Tác Tử</th>
+                  <th class="p-3">Prompt</th>
+                  <th class="p-3">Response Ban Đầu</th>
+                  <th class="p-3">Câu Trả Lời Sửa (Chosen)</th>
+                  <th class="p-3">Rating</th>
+                  <th class="p-3 text-right rounded-r-lg">Thời Gian</th>
+                </tr>
+              </thead>
+              <tbody id="feedback-list-tbody" class="divide-y divide-slate-800 text-slate-300">
+                <tr><td colspan="6" class="p-6 text-center text-slate-500">Đang tải lịch sử phản hồi...</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div id="feedback-list-pagination" class="pt-2"></div>
+        </div>
+      </section>
+
+    </main>
+  </div>
+
+  <!-- ========================================== -->
+  <!-- MODALS & OVERLAYS                          -->
+  <!-- ========================================== -->
+
+  <!-- 1. Command Palette Modal (Ctrl+K) -->
+  <div id="command-palette-modal" class="hidden fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-start justify-center pt-20 p-4">
+    <div class="bg-slate-900 border border-slate-700 w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden">
+      <div class="p-3 border-b border-slate-800 flex items-center space-x-2">
+        <i class="fa-solid fa-magnifying-glass text-slate-400 text-sm ml-2"></i>
+        <input type="text" id="cmd-input" placeholder="Gõ lệnh hoặc tìm kiếm chức năng..." class="w-full bg-transparent text-sm text-white focus:outline-none" oninput="filterCommandPalette(this.value)">
+        <kbd class="text-[10px] bg-slate-800 text-slate-400 px-1.5 py-0.5 rounded font-mono">ESC</kbd>
+      </div>
+      <div id="cmd-results" class="max-h-80 overflow-y-auto p-2 space-y-1 text-xs">
+        <button onclick="switchView('chat'); closeCommandPalette();" class="w-full text-left p-2.5 rounded-xl hover:bg-slate-800 text-slate-300 flex items-center justify-between">
+          <span>💬 Mở Hội Thoại (Chat Workspace)</span>
+          <kbd class="text-[10px] text-slate-500">Ctrl 1</kbd>
+        </button>
+        <button onclick="switchView('docs'); closeCommandPalette();" class="w-full text-left p-2.5 rounded-xl hover:bg-slate-800 text-slate-300 flex items-center justify-between">
+          <span>📄 Quản lý Tài Liệu & Tóm tắt PDF</span>
+          <kbd class="text-[10px] text-slate-500">Ctrl 2</kbd>
+        </button>
+        <button onclick="switchView('inbox'); closeCommandPalette();" class="w-full text-left p-2.5 rounded-xl hover:bg-slate-800 text-slate-300 flex items-center justify-between">
+          <span>✉️ Đọc Hộp Thư & Soạn Gmail</span>
+          <kbd class="text-[10px] text-slate-500">Ctrl 3</kbd>
+        </button>
+        <button onclick="switchView('calendar'); closeCommandPalette();" class="w-full text-left p-2.5 rounded-xl hover:bg-slate-800 text-slate-300 flex items-center justify-between">
+          <span>📅 Xem Lịch & Quản lý Nhắc Hẹn</span>
+          <kbd class="text-[10px] text-slate-500">Ctrl 4</kbd>
+        </button>
+        <button onclick="switchView('tasks'); closeCommandPalette();" class="w-full text-left p-2.5 rounded-xl hover:bg-slate-800 text-slate-300 flex items-center justify-between">
+          <span>✅ Danh Sách Việc Cần Làm (Tasks)</span>
+          <kbd class="text-[10px] text-slate-500">Ctrl 5</kbd>
+        </button>
+        <button onclick="switchView('training'); closeCommandPalette();" class="w-full text-left p-2.5 rounded-xl hover:bg-slate-800 text-slate-300 flex items-center justify-between">
+          <span>🧠 Huấn Luyện Tăng Cường (RL DPO)</span>
+          <kbd class="text-[10px] text-slate-500">Ctrl 6</kbd>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 2. Model Diagnostics Modal -->
+  <div id="model-modal" class="hidden fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+    <div class="bg-slate-900 border border-slate-700 w-full max-w-md rounded-2xl shadow-2xl p-5 space-y-4 text-xs">
+      <div class="flex justify-between items-center border-b border-slate-800 pb-3">
+        <h3 class="font-bold text-sm text-white flex items-center gap-2">
+          <i class="fa-solid fa-microchip text-brand-400"></i> Thông Tin Mô Hình Local LLM
+        </h3>
+        <button onclick="closeModelModal()" class="text-slate-400 hover:text-white">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+      <div class="space-y-2.5 text-slate-300">
+        <div class="flex justify-between py-1 border-b border-slate-800/60">
+          <span class="text-slate-400">Tên mô hình:</span>
+          <span id="diag-model-name" class="font-mono font-bold text-brand-400">...</span>
+        </div>
+        <div class="flex justify-between py-1 border-b border-slate-800/60">
+          <span class="text-slate-400">VRAM ước tính:</span>
+          <span id="diag-vram" class="font-mono text-emerald-400">...</span>
+        </div>
+        <div class="flex justify-between py-1 border-b border-slate-800/60">
+          <span class="text-slate-400">Context Window:</span>
+          <span id="diag-context" class="font-mono text-white">32,768 tokens</span>
+        </div>
+        <div class="flex justify-between py-1 border-b border-slate-800/60">
+          <span class="text-slate-400">Quantization:</span>
+          <span id="diag-quant" class="font-mono text-amber-300">Q4_K_M</span>
+        </div>
+        <div class="flex justify-between py-1 border-b border-slate-800/60">
+          <span class="text-slate-400">Ollama Base URL:</span>
+          <span class="font-mono text-slate-400">http://localhost:11434</span>
+        </div>
+      </div>
+      <div class="flex justify-end space-x-2 pt-2">
+        <button onclick="reloadModelWeightsAction()" class="bg-brand-600 hover:bg-brand-500 text-white px-3.5 py-2 rounded-xl font-medium transition flex items-center gap-1.5">
+          <i class="fa-solid fa-rotate"></i> Tải lại mô hình
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 3. Critique / Feedback Edit Modal (RL Loop) -->
+  <div id="feedback-critique-modal" class="hidden fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+    <div class="bg-slate-900 border border-slate-700 w-full max-w-lg rounded-2xl shadow-2xl p-5 space-y-4 text-xs">
+      <div class="flex justify-between items-center border-b border-slate-800 pb-3">
+        <h3 class="font-bold text-sm text-white flex items-center gap-2">
+          <i class="fa-solid fa-pen-to-square text-amber-400"></i> Chỉnh Sửa Câu Trả Lời (RL Training Pair)
+        </h3>
+        <button onclick="closeCritiqueModal()" class="text-slate-400 hover:text-white">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+      <div class="space-y-3 text-slate-300">
+        <div>
+          <label class="block text-slate-400 mb-1">Câu hỏi ban đầu của bạn:</label>
+          <p id="critique-prompt-display" class="bg-slate-950 p-2.5 rounded-lg border border-slate-800 text-slate-300 italic font-mono"></p>
+        </div>
+        <div>
+          <label class="block text-slate-400 mb-1">Câu trả lời chuẩn theo ý bạn (Chosen):</label>
+          <textarea id="critique-corrected-input" rows="5" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-white focus:outline-none focus:border-brand-500 font-sans"></textarea>
+        </div>
+        <div>
+          <label class="block text-slate-400 mb-1">Góp ý thêm (Tùy chọn):</label>
+          <input type="text" id="critique-notes-input" placeholder="Ví dụ: AI bỏ sót thời gian nhắc hẹn..." class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-white focus:outline-none focus:border-brand-500">
+        </div>
+      </div>
+      <div class="flex justify-end space-x-2 pt-2">
+        <button onclick="closeCritiqueModal()" class="px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-medium">Hủy</button>
+        <button onclick="saveCritiqueCorrection()" class="bg-brand-600 hover:bg-brand-500 text-white px-4 py-2 rounded-xl font-semibold shadow transition">
+          Lưu Cặp DPO & Đóng
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 4. Quick Add Task Modal -->
+  <div id="add-task-modal" class="hidden fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+    <div class="bg-slate-900 border border-slate-700 w-full max-w-md rounded-2xl shadow-2xl p-5 space-y-4 text-xs">
+      <div class="flex justify-between items-center border-b border-slate-800 pb-3">
+        <h3 class="font-bold text-sm text-white">Thêm Công Việc Mới</h3>
+        <button onclick="closeAddTaskModal()" class="text-slate-400 hover:text-white">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+      <div class="space-y-3">
+        <div>
+          <label class="block text-slate-400 mb-1">Tiêu đề công việc:</label>
+          <input type="text" id="modal-task-title" placeholder="VD: Gửi báo cáo doanh thu quý..." class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-white focus:outline-none focus:border-amber-500">
+        </div>
+        <div>
+          <label class="block text-slate-400 mb-1">Hạn hoàn thành:</label>
+          <input type="datetime-local" id="modal-task-due" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-white focus:outline-none focus:border-amber-500">
+        </div>
+        <div>
+          <label class="block text-slate-400 mb-1">Mức độ ưu tiên:</label>
+          <select id="modal-task-priority" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-white">
+            <option value="medium">Bình thường (Medium)</option>
+            <option value="high">Cao (High)</option>
+            <option value="low">Thấp (Low)</option>
+          </select>
+        </div>
+      </div>
+      <div class="flex justify-end space-x-2 pt-2">
+        <button onclick="closeAddTaskModal()" class="px-3.5 py-2 rounded-xl bg-slate-800 text-slate-300">Hủy</button>
+        <button onclick="submitNewTask()" class="bg-amber-600 hover:bg-amber-500 text-white px-4 py-2 rounded-xl font-semibold">Tạo Việc</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Notification Container -->
+  <div id="toast-container" class="fixed top-5 right-5 space-y-2.5 z-50 pointer-events-none"></div>
+
+  <!-- ========================================== -->
+  <!-- JAVASCRIPT LOGIC & STATE ENGINE            -->
+  <!-- ========================================== -->
+  <script>
+    // Global Application State
+    const AppState = {
+      currentView: 'chat',
+      activeAgent: 'auto',
+      activeSessionId: localStorage.getItem('local_assistant_active_session_id') || null,
+      sessions: [],
+      attachedFile: null,
+      selectedDoc: null,
+      selectedEmail: null,
+      isStreaming: false,
+      modelInfo: {
+        name: 'deepseek-r1:8b',
+        vram: '5.8 GB',
+        context: 32768,
+      },
+      notifications: [],
+      tasks: [],
+      recentActivities: [],
+    };
+
+    // Configure marked.js
+    if (window.marked) {
+      marked.setOptions({ breaks: true, gfm: true });
+    }
+
+    function renderMarkdown(text) {
+      if (!text) return '';
+      try {
+        return marked.parse(text);
+      } catch (e) {
+        return escapeHtml(text);
+      }
+    }
+
+    function escapeHtml(str) {
+      if (!str) return '';
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+
+    // Scroll Chat to Bottom Helper
+    function scrollChatToBottom(smooth = true) {
+      const box = document.getElementById('chat-messages');
+      if (!box) return;
+      box.scrollTo({
+        top: box.scrollHeight,
+        behavior: smooth ? 'smooth' : 'auto'
+      });
+    }
+
+    // Monitor Scroll to show/hide Scroll-to-Bottom Button
+    function setupChatScrollListener() {
+      const box = document.getElementById('chat-messages');
+      const btn = document.getElementById('btn-scroll-bottom');
+      if (!box || !btn) return;
+      box.addEventListener('scroll', () => {
+        const distanceFromBottom = box.scrollHeight - box.scrollTop - box.clientHeight;
+        if (distanceFromBottom > 150) {
+          btn.classList.remove('hidden');
+        } else {
+          btn.classList.add('hidden');
+        }
+      });
+    }
+
+    // Audio Chime Synthesizer via Web Audio API
+    function playChime(type = 'notification') {
+      try {
+        const ctx = new (window.AudioContext || window.webkitAudioContext)();
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+
+        if (type === 'notification') {
+          osc.frequency.setValueAtTime(587.33, ctx.currentTime); // D5
+          osc.frequency.setValueAtTime(880, ctx.currentTime + 0.1); // A5
+          gain.gain.setValueAtTime(0.12, ctx.currentTime);
+          gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.4);
+          osc.start();
+          osc.stop(ctx.currentTime + 0.4);
+        } else if (type === 'success') {
+          osc.frequency.setValueAtTime(523.25, ctx.currentTime); // C5
+          osc.frequency.setValueAtTime(659.25, ctx.currentTime + 0.08); // E5
+          osc.frequency.setValueAtTime(783.99, ctx.currentTime + 0.16); // G5
+          gain.gain.setValueAtTime(0.1, ctx.currentTime);
+          gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.5);
+          osc.start();
+          osc.stop(ctx.currentTime + 0.5);
+        }
+      } catch (e) {
+        // AudioContext might be blocked before first user gesture
+      }
+    }
+
+    // Toast Messenger
+    function showToast(message, type = 'info') {
+      const container = document.getElementById('toast-container');
+      const toast = document.createElement('div');
+      toast.className = `pointer-events-auto p-3.5 rounded-xl shadow-xl border text-xs flex items-center space-x-2.5 transition-all duration-300 transform translate-y-2 opacity-0 ${
+        type === 'success' ? 'bg-emerald-950 border-emerald-500/50 text-emerald-200' :
+        type === 'error' ? 'bg-rose-950 border-rose-500/50 text-rose-200' :
+        'bg-slate-900 border-slate-700 text-slate-200'
+      }`;
+
+      const icon = type === 'success' ? 'fa-circle-check text-emerald-400' :
+                   type === 'error' ? 'fa-circle-exclamation text-rose-400' :
+                   'fa-bell text-brand-400';
+
+      toast.innerHTML = `<i class="fa-solid ${icon}"></i> <span>${escapeHtml(message)}</span>`;
+      container.appendChild(toast);
+
+      requestAnimationFrame(() => {
+        toast.classList.remove('translate-y-2', 'opacity-0');
+      });
+
+      setTimeout(() => {
+        toast.classList.add('opacity-0', '-translate-y-2');
+        setTimeout(() => toast.remove(), 300);
+      }, 4000);
+    }
+
+    // View Switching Router
+    function switchView(viewName) {
+      AppState.currentView = viewName;
+      document.querySelectorAll('.view-content').forEach(el => el.classList.remove('active'));
+      document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active', 'bg-slate-800', 'text-white'));
+
+      const target = document.getElementById(`view-${viewName}`);
+      const navBtn = document.getElementById(`nav-${viewName}`);
+      if (target) target.classList.add('active');
+      if (navBtn) navBtn.classList.add('active', 'bg-slate-800', 'text-white');
+
+      // Refresh data on view switch
+      if (viewName === 'calendar') loadCalendarEvents(1);
+      else if (viewName === 'inbox') scanInboxEmails();
+      else if (viewName === 'tasks') loadTasks();
+      else if (viewName === 'training') { loadFeedbackStats(); loadFeedbackList(1); }
+      else if (viewName === 'docs') loadDocumentsList();
+    }
+
+    function toggleSidebar() {
+      const sb = document.getElementById('main-sidebar');
+      sb.classList.toggle('-translate-x-full');
+      if (sb.classList.contains('-translate-x-full')) {
+        sb.classList.add('hidden');
+      } else {
+        sb.classList.remove('hidden');
+      }
+    }
+
+    function quickSelectAgent(agent) {
+      switchView('chat');
+      document.getElementById('composer-agent-select').value = agent;
+      showToast(`Đã chuyển sang ${agent.toUpperCase()} Agent`, 'info');
+    }
+
+    // Topbar Status & Model Information
+    async function checkSystemStatus() {
+      try {
+        const res = await fetch('/api/chat/status');
+        if (res.ok) {
+          const data = await res.json();
+          const dot = document.getElementById('agent-status-dot');
+          const nameEl = document.getElementById('topbar-model-name');
+
+          if (data.ollama_status && data.ollama_status.connected) {
+            dot.className = "w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse";
+            const modName = data.ollama_status.target_model || 'deepseek-r1:8b';
+            nameEl.innerText = `${modName} · Local`;
+            AppState.modelInfo.name = modName;
+          } else {
+            dot.className = "w-2.5 h-2.5 rounded-full bg-amber-500";
+            nameEl.innerText = `Ollama: Chưa kết nối`;
+          }
+        }
+      } catch (e) {
+        console.warn('System status fetch failed:', e);
+      }
+    }
+
+    // Notifications & Upcoming Reminders Poller
+    async function fetchUpcomingNotifications() {
+      try {
+        const res = await fetch('/api/calendar/upcoming?hours=24');
+        if (res.ok) {
+          const data = await res.json();
+          const badge = document.getElementById('notification-badge');
+          const list = document.getElementById('notification-list');
+          const items = data.items || [];
+
+          if (items.length > 0) {
+            badge.innerText = items.length;
+            badge.classList.remove('hidden');
+            list.innerHTML = items.slice(0, 5).map(it => `
+              <div class="p-3 hover:bg-slate-800/60 transition flex items-start gap-2.5 cursor-pointer" onclick="switchView('calendar'); toggleNotificationDropdown();">
+                <i class="fa-solid fa-calendar-day text-brand-400 mt-0.5"></i>
+                <div class="flex-1 min-w-0">
+                  <p class="font-medium text-white truncate">${escapeHtml(it.title)}</p>
+                  <p class="text-[11px] text-slate-400">${escapeHtml(it.start_time ? it.start_time.substring(11, 16) : '')} • Nhắc trước ${it.reminder_minutes}p</p>
+                </div>
+              </div>
+            `).join('');
+
+            // If there's an imminent event, play chime and update banner
+            if (data.imminent_count > 0) {
+              const imminent = items.find(i => i.is_imminent) || items[0];
+              document.getElementById('cal-banner-title').innerText = `🔔 Sắp tới: ${imminent.title}`;
+              document.getElementById('cal-banner-desc').innerText = `Diễn ra trong ${imminent.minutes_until} phút nữa tại ${imminent.location || 'Online'}.`;
+              document.getElementById('cal-banner-countdown').innerText = `Còn ${imminent.minutes_until} phút`;
+            }
+          } else {
+            badge.classList.add('hidden');
+            list.innerHTML = `<div class="p-4 text-center text-slate-500">Không có thông báo mới.</div>`;
+          }
+        }
+      } catch (e) {
+        console.warn('Failed to fetch notifications:', e);
+      }
+    }
+
+    function toggleNotificationDropdown() {
+      const drop = document.getElementById('notification-dropdown');
+      drop.classList.toggle('hidden');
+    }
+
+    // Composer & Chat Handlers
+    function onComposerInput(textarea) {
+      textarea.style.height = 'auto';
+      textarea.style.height = Math.min(textarea.scrollHeight, 180) + 'px';
+
+      const val = textarea.value.toLowerCase();
+      // Date / Schedule regex detection
+      const schedulePattern = /(họp|lịch|deadline|nhắc|lúc|ngày|thứ|chiều nay|sáng mai|hôm nay)/i;
+      const schedBadge = document.getElementById('composer-schedule-badge');
+      if (schedulePattern.test(val) && val.length > 8) {
+        schedBadge.classList.remove('hidden');
+        document.getElementById('schedule-preview-text').innerText = textarea.value.substring(0, 60) + '...';
+      } else {
+        schedBadge.classList.add('hidden');
+      }
+    }
+
+    function onComposerKeyDown(e) {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        handleComposerSubmit();
+      }
+    }
+
+    function dismissSchedulePreview() {
+      document.getElementById('composer-schedule-badge').classList.add('hidden');
+    }
+
+    function onFileSelected(input) {
+      if (input.files && input.files[0]) {
+        AppState.attachedFile = input.files[0];
+        document.getElementById('composer-attached-name').innerText = AppState.attachedFile.name;
+        document.getElementById('composer-attached-chip').classList.remove('hidden');
+        document.getElementById('composer-agent-select').value = 'summarizer';
+        showToast(`Đã đính kèm ${AppState.attachedFile.name} (Tự chọn Summarizer)`, 'info');
+      }
+    }
+
+    function clearAttachedFile() {
+      AppState.attachedFile = null;
+      document.getElementById('composer-attached-chip').classList.add('hidden');
+      document.getElementById('composer-file-input').value = '';
+    }
+
+    async function handleComposerSubmit() {
+      const input = document.getElementById('composer-input');
+      const text = input.value.trim();
+      const file = AppState.attachedFile;
+      const agent = document.getElementById('composer-agent-select').value;
+
+      if (!text && !file) return;
+
+      appendChatMessage('user', text + (file ? ` [Tài liệu: ${file.name}]` : ''));
+      input.value = '';
+      input.style.height = 'auto';
+      clearAttachedFile();
+      dismissSchedulePreview();
+
+      const sendBtn = document.getElementById('composer-send-btn');
+      sendBtn.disabled = true;
+      sendBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
+
+      try {
+        let res;
+        if (file) {
+          const fd = new FormData();
+          fd.append('message', text || 'Tóm tắt tài liệu PDF và phân tích mốc thời gian');
+          if (AppState.activeSessionId) {
+            fd.append('session_id', AppState.activeSessionId);
+          }
+          fd.append('file', file);
+          res = await fetch('/api/chat/with-file', { method: 'POST', body: fd });
+        } else {
+          res = await fetch('/api/chat', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              message: text,
+              session_id: AppState.activeSessionId
+            })
+          });
+        }
+
+        if (res.ok) {
+          const data = await res.json();
+          if (data.session_id) {
+            AppState.activeSessionId = data.session_id;
+            localStorage.setItem('local_assistant_active_session_id', data.session_id);
+            loadChatSessionsList();
+          }
+          appendChatMessage('ai', data.response, data.agents_invoked, data.thinking_process, text);
+          playChime('success');
+        } else {
+          appendChatMessage('ai', `Lỗi máy chủ (${res.status}): ${res.statusText}`);
+        }
+      } catch (err) {
+        appendChatMessage('ai', `Lỗi kết nối Local AI Assistant: ${err.message}`);
+      } finally {
+        sendBtn.disabled = false;
+        sendBtn.innerHTML = '<span>Gửi</span> <i class="fa-solid fa-arrow-up text-xs"></i>';
+      }
+    }
+
+    function quickPrompt(promptText) {
+      switchView('chat');
+      document.getElementById('composer-input').value = promptText;
+      handleComposerSubmit();
+    }
+
+    // Chat Message Rendering with RL Feedback Bar
+    function appendChatMessage(role, text, agents = [], thought = '', originalPrompt = '', autoScroll = true) {
+      const box = document.getElementById('chat-messages');
+      const msgDiv = document.createElement('div');
+      msgDiv.className = "flex items-start space-x-3 max-w-4xl";
+
+      const avatar = role === 'user'
+        ? '<div class="w-8 h-8 rounded-lg bg-slate-700 flex items-center justify-center flex-shrink-0 text-white text-xs"><i class="fa-solid fa-user"></i></div>'
+        : '<div class="w-8 h-8 rounded-lg bg-brand-600 flex items-center justify-center flex-shrink-0 text-white font-bold text-xs shadow-md">AI</div>';
+
+      let badges = '';
+      if (agents && agents.length > 0) {
+        badges = '<div class="flex flex-wrap gap-1.5 mb-2">' +
+          agents.map(a => `<span class="bg-brand-500/10 text-brand-300 border border-brand-500/30 text-[10px] px-2 py-0.5 rounded-full font-mono">${a}</span>`).join('') +
+          '</div>';
+      }
+
+      let thoughtBlock = '';
+      if (thought) {
+        thoughtBlock = `
+          <details class="text-xs bg-slate-950 p-2.5 rounded-xl border border-slate-800 mb-2.5">
+            <summary class="cursor-pointer text-amber-400 font-semibold flex items-center gap-1.5 select-none">
+              <i class="fa-solid fa-brain"></i> Suy luận DeepSeek-R1 (&lt;think&gt;)
+            </summary>
+            <div class="mt-2 text-slate-400 whitespace-pre-wrap font-mono text-[11px] leading-relaxed">${escapeHtml(thought)}</div>
+          </details>`;
+      }
+
+      const bubbleClass = role === 'user'
+        ? 'bg-slate-800/80 border border-slate-700 text-slate-100'
+        : 'bg-slate-900 border border-slate-800 text-slate-200';
+
+      const renderedBody = role === 'user'
+        ? `<div class="whitespace-pre-wrap leading-relaxed">${escapeHtml(text)}</div>`
+        : `<div class="leading-relaxed markdown-body">${renderMarkdown(text)}</div>`;
+
+      // RL Feedback Bar for Assistant Messages
+      let feedbackBar = '';
+      if (role === 'ai') {
+        const safeText = encodeURIComponent(text);
+        const safePrompt = encodeURIComponent(originalPrompt || 'Yêu cầu chat');
+        feedbackBar = `
+          <div class="flex items-center space-x-2 pt-2.5 mt-2.5 border-t border-slate-800/70 text-slate-400 text-xs">
+            <button onclick="submitThumbFeedback(this, '${safePrompt}', '${safeText}', 1)" class="hover:text-emerald-400 p-1 transition" title="Hữu ích (Thumbs Up)">
+              <i class="fa-regular fa-thumbs-up"></i>
+            </button>
+            <button onclick="submitThumbFeedback(this, '${safePrompt}', '${safeText}', -1)" class="hover:text-rose-400 p-1 transition" title="Chưa đạt (Thumbs Down)">
+              <i class="fa-regular fa-thumbs-down"></i>
+            </button>
+            <button onclick="openCritiqueModal('${safePrompt}', '${safeText}')" class="hover:text-amber-400 p-1 transition" title="Chỉnh sửa câu trả lời chuẩn (DPO Pair)">
+              <i class="fa-solid fa-pen-to-square"></i>
+            </button>
+            <button onclick="copyToClipboard('${safeText}')" class="hover:text-white p-1 transition" title="Sao chép nội dung">
+              <i class="fa-regular fa-copy"></i>
+            </button>
+          </div>
+        `;
+      }
+
+      msgDiv.innerHTML = `
+        ${avatar}
+        <div class="${bubbleClass} p-4 rounded-2xl flex-1 shadow-sm">
+          ${badges}
+          ${thoughtBlock}
+          ${renderedBody}
+          ${feedbackBar}
+        </div>
+      `;
+      box.appendChild(msgDiv);
+      if (autoScroll) {
+        scrollChatToBottom(true);
+      }
+    }
+
+    // ==========================================
+    // CHAT SESSIONS & HISTORY PERSISTENCE
+    // ==========================================
+    async function loadChatSessionsList() {
+      const container = document.getElementById('recent-activities-list');
+      try {
+        const res = await fetch('/api/chat/sessions');
+        if (res.ok) {
+          const sessions = await res.json();
+          AppState.sessions = sessions;
+          if (!sessions.length) {
+            container.innerHTML = `<div class="px-2.5 py-1.5 text-[11px] text-slate-500 italic">Chưa có phiên chat nào</div>`;
+            return;
+          }
+
+          container.innerHTML = sessions.map(s => {
+            const isActive = s.id === AppState.activeSessionId;
+            return `
+              <div onclick="selectChatSession('${s.id}')" class="group flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs cursor-pointer transition ${
+                isActive ? 'bg-slate-800 text-white font-medium border border-slate-700/60' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/40'
+              }">
+                <div class="flex items-center space-x-2 truncate flex-1 min-w-0 pr-1">
+                  <i class="fa-regular fa-comment text-[11px] ${isActive ? 'text-brand-400' : 'text-slate-500'}"></i>
+                  <span class="truncate" title="${escapeHtml(s.title)}">${escapeHtml(s.title)}</span>
+                </div>
+                <div class="flex items-center space-x-1 flex-shrink-0">
+                  <span class="text-[10px] text-slate-500 font-mono">${s.message_count}</span>
+                  <button onclick="event.stopPropagation(); deleteChatSessionAction('${s.id}')" class="opacity-0 group-hover:opacity-100 text-slate-500 hover:text-rose-400 p-0.5 transition" title="Xóa phiên">
+                    <i class="fa-solid fa-trash-can text-[10px]"></i>
+                  </button>
+                </div>
+              </div>
+            `;
+          }).join('');
+        }
+      } catch (e) {
+        console.warn('Lỗi tải danh sách phiên chat:', e);
+      }
+    }
+
+    async function selectChatSession(sessionId) {
+      if (AppState.activeSessionId === sessionId) return;
+      AppState.activeSessionId = sessionId;
+      localStorage.setItem('local_assistant_active_session_id', sessionId);
+      await loadSessionMessages(sessionId);
+      loadChatSessionsList();
+    }
+
+    async function loadSessionMessages(sessionId) {
+      const box = document.getElementById('chat-messages');
+      box.innerHTML = '<div class="p-8 text-center text-slate-500 text-xs"><i class="fa-solid fa-spinner fa-spin mr-2"></i>Đang nạp lịch sử cuộc trò chuyện...</div>';
+
+      try {
+        const res = await fetch(`/api/chat/sessions/${sessionId}`);
+        if (res.ok) {
+          const data = await res.json();
+          box.innerHTML = '';
+          const messages = data.messages || [];
+
+          if (messages.length === 0) {
+            renderWelcomeMessage();
+          } else {
+            messages.forEach(m => {
+              appendChatMessage(m.role, m.content, m.agents_invoked, m.thinking_process, '', false);
+            });
+            setTimeout(() => scrollChatToBottom(false), 50);
+          }
+        } else {
+          renderWelcomeMessage();
+        }
+      } catch (e) {
+        box.innerHTML = `<div class="p-8 text-center text-rose-400 text-xs">Lỗi nạp tin nhắn: ${e.message}</div>`;
+      }
+    }
+
+    function renderWelcomeMessage() {
+      const box = document.getElementById('chat-messages');
+      box.innerHTML = `
+        <div class="flex items-start space-x-3 max-w-3xl">
+          <div class="w-8 h-8 rounded-lg bg-brand-600 flex items-center justify-center flex-shrink-0 text-white font-bold text-xs shadow-md">
+            AI
+          </div>
+          <div class="bg-slate-900 border border-slate-800 p-4 rounded-2xl shadow-sm text-slate-200 space-y-2.5 flex-1">
+            <p class="font-medium text-white flex items-center gap-2">
+              Xin chào! Tôi là Trợ lý Multi-Agent hoạt động hoàn toàn tại Local.
+              <span class="text-[10px] bg-brand-500/20 text-brand-300 px-2 py-0.5 rounded-full font-mono">01 Local LLM</span>
+            </p>
+            <p class="text-xs text-slate-300">Bạn có thể hỏi bất kỳ câu hỏi nào, kéo thả PDF vào khung nhập để tóm tắt, yêu cầu gửi/đọc Gmail hoặc đặt lịch nhắc hẹn tự động:</p>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1 text-xs">
+              <button onclick="quickPrompt('Tóm tắt tài liệu PDF và trích xuất các hạn chót quan trọng')" class="text-left p-2.5 rounded-xl bg-slate-800/80 hover:bg-slate-800 border border-slate-700/60 text-slate-300 transition">
+                📄 <b>Tóm tắt PDF</b>: Phân tích 4 phần & deadline
+              </button>
+              <button onclick="quickPrompt('Đọc email mới từ sếp, nếu có sự cố hãy đề xuất giải pháp xử lý')" class="text-left p-2.5 rounded-xl bg-slate-800/80 hover:bg-slate-800 border border-slate-700/60 text-slate-300 transition">
+                ✉️ <b>Đọc Gmail & Sự cố</b>: Lọc whitelist & đề xuất
+              </button>
+              <button onclick="quickPrompt('Tạo lịch họp nghiệm thu dự án lúc 15h30 chiều mai, nhắc trước 30 phút')" class="text-left p-2.5 rounded-xl bg-slate-800/80 hover:bg-slate-800 border border-slate-700/60 text-slate-300 transition">
+                📅 <b>Google Calendar</b>: Trích xuất lịch & .ics
+              </button>
+              <button onclick="quickPrompt('Đề xuất ma trận giải pháp khắc phục sự cố máy chủ thanh toán bị timeout')" class="text-left p-2.5 rounded-xl bg-slate-800/80 hover:bg-slate-800 border border-slate-700/60 text-slate-300 transition">
+                💡 <b>Advisor</b>: Root Cause & giải pháp 3 cấp
+              </button>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    async function startNewChatSession() {
+      try {
+        const res = await fetch('/api/chat/sessions', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ title: 'Cuộc trò chuyện mới' })
+        });
+        if (res.ok) {
+          const sess = await res.json();
+          AppState.activeSessionId = sess.id;
+          localStorage.setItem('local_assistant_active_session_id', sess.id);
+          switchView('chat');
+          renderWelcomeMessage();
+          await loadChatSessionsList();
+          showToast('Đã bắt đầu cuộc trò chuyện mới', 'success');
+        }
+      } catch (e) {
+        showToast('Lỗi tạo phiên mới: ' + e.message, 'error');
+      }
+    }
+
+    async function deleteChatSessionAction(sessionId) {
+      if (!confirm('Bạn có chắc muốn xóa phiên trò chuyện này không?')) return;
+      try {
+        const res = await fetch(`/api/chat/sessions/${sessionId}`, { method: 'DELETE' });
+        if (res.ok) {
+          showToast('Đã xóa phiên trò chuyện', 'info');
+          if (AppState.activeSessionId === sessionId) {
+            AppState.activeSessionId = null;
+            localStorage.removeItem('local_assistant_active_session_id');
+            renderWelcomeMessage();
+          }
+          await loadChatSessionsList();
+        }
+      } catch (e) {
+        showToast('Lỗi xóa phiên: ' + e.message, 'error');
+      }
+    }
+
+    // Direct 1-Click Thumbs Feedback
+    async function submitThumbFeedback(btn, encPrompt, encResp, rating) {
+      const prompt = decodeURIComponent(encPrompt);
+      const resp = decodeURIComponent(encResp);
+      try {
+        const res = await fetch('/api/feedback', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            agent_type: 'router',
+            prompt: prompt,
+            response: resp,
+            rating: rating,
+          })
+        });
+        if (res.ok) {
+          btn.classList.add(rating > 0 ? 'text-emerald-400' : 'text-rose-400');
+          showToast(`Đã ghi nhận phản hồi ${rating > 0 ? '👍' : '👎'} vào RL Dataset`, 'success');
+        }
+      } catch (e) {
+        showToast('Lỗi ghi nhận phản hồi: ' + e.message, 'error');
+      }
+    }
+
+    function copyToClipboard(encText) {
+      const text = decodeURIComponent(encText);
+      navigator.clipboard.writeText(text).then(() => {
+        showToast('Đã sao chép vào clipboard', 'success');
+      });
+    }
+
+    // Critique & Edit Modal (Creating chosen vs rejected preference pair)
+    let activeCritiquePrompt = '';
+    let activeCritiqueResponse = '';
+    function openCritiqueModal(encPrompt, encResp) {
+      activeCritiquePrompt = decodeURIComponent(encPrompt);
+      activeCritiqueResponse = decodeURIComponent(encResp);
+      document.getElementById('critique-prompt-display').innerText = activeCritiquePrompt;
+      document.getElementById('critique-corrected-input').value = activeCritiqueResponse;
+      document.getElementById('feedback-critique-modal').classList.remove('hidden');
+    }
+
+    function closeCritiqueModal() {
+      document.getElementById('feedback-critique-modal').classList.add('hidden');
+    }
+
+    async function saveCritiqueCorrection() {
+      const corrected = document.getElementById('critique-corrected-input').value.trim();
+      const notes = document.getElementById('critique-notes-input').value.trim();
+      if (!corrected) {
+        alert('Vui lòng nhập câu trả lời chuẩn');
+        return;
+      }
+      try {
+        const res = await fetch('/api/feedback', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            agent_type: 'router',
+            prompt: activeCritiquePrompt,
+            response: activeCritiqueResponse,
+            corrected_response: corrected,
+            rating: 1,
+            feedback_notes: notes || null
+          })
+        });
+        if (res.ok) {
+          showToast('Đã lưu cặp dữ liệu DPO (chosen vs rejected) thành công!', 'success');
+          closeCritiqueModal();
+          loadFeedbackStats();
+        }
+      } catch (e) {
+        showToast('Lỗi lưu phản hồi: ' + e.message, 'error');
+      }
+    }
+
+    // Tasks Management Handlers
+    let allTasks = [];
+    async function loadTasks() {
+      const statusFilter = document.getElementById('task-status-filter').value;
+      try {
+        const res = await fetch(`/api/tasks?status=${statusFilter}`);
+        if (res.ok) {
+          const data = await res.json();
+          allTasks = data.items || [];
+          document.getElementById('task-stat-total').innerText = data.stats.total;
+          document.getElementById('task-stat-pending').innerText = data.stats.pending;
+          document.getElementById('task-stat-completed').innerText = data.stats.completed;
+          document.getElementById('sidebar-tasks-count').innerText = data.stats.pending;
+          renderTasksList();
+        }
+      } catch (e) {
+        console.warn('Failed to load tasks:', e);
+      }
+    }
+
+    function renderTasksList() {
+      const todayBox = document.getElementById('tasks-list-today');
+      const weekBox = document.getElementById('tasks-list-this-week');
+      const otherBox = document.getElementById('tasks-list-other');
+
+      const now = new Date();
+      const todayStr = now.toISOString().substring(0, 10);
+
+      const todayTasks = allTasks.filter(t => t.due_date && t.due_date.substring(0, 10) === todayStr);
+      const otherTasks = allTasks.filter(t => !t.due_date || t.due_date.substring(0, 10) !== todayStr);
+
+      const renderItem = t => `
+        <div class="p-3 rounded-xl bg-slate-900 border border-slate-800 flex items-center justify-between text-xs hover:border-slate-700 transition">
+          <div class="flex items-center space-x-3 flex-1 min-w-0">
+            <input type="checkbox" ${t.status === 'completed' ? 'checked' : ''} onchange="toggleTaskStatus('${t.id}', this.checked)" class="rounded bg-slate-950 border-slate-700 text-brand-600 focus:ring-0 cursor-pointer">
+            <span class="${t.status === 'completed' ? 'line-through text-slate-500' : 'text-slate-200'} font-medium truncate">${escapeHtml(t.title)}</span>
+            <span class="text-[10px] px-1.5 py-0.2 rounded bg-slate-800 text-slate-400 border border-slate-700 font-mono">${t.source_type}</span>
+          </div>
+          <div class="flex items-center space-x-2">
+            ${t.due_date ? `<span class="text-slate-400 font-mono text-[11px]">${t.due_date.substring(11, 16)}</span>` : ''}
+            <button onclick="deleteTaskAction('${t.id}')" class="text-slate-500 hover:text-rose-400 p-1">
+              <i class="fa-solid fa-trash-can"></i>
+            </button>
+          </div>
+        </div>
+      `;
+
+      todayBox.innerHTML = todayTasks.length ? todayTasks.map(renderItem).join('') : '<div class="p-3 rounded-xl bg-slate-900/50 border border-slate-800 text-xs text-slate-500 italic">Không có công việc nào hôm nay.</div>';
+      weekBox.innerHTML = otherTasks.length ? otherTasks.map(renderItem).join('') : '<div class="p-3 rounded-xl bg-slate-900/50 border border-slate-800 text-xs text-slate-500 italic">Không có công việc nào trong tuần này.</div>';
+      otherBox.innerHTML = '<div class="p-3 rounded-xl bg-slate-900/50 border border-slate-800 text-xs text-slate-500 italic">Đã đồng bộ công việc.</div>';
+    }
+
+    async function toggleTaskStatus(taskId, isCompleted) {
+      try {
+        await fetch(`/api/tasks/${taskId}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ status: isCompleted ? 'completed' : 'pending' })
+        });
+        loadTasks();
+      } catch (e) {
+        showToast('Lỗi cập nhật task: ' + e.message, 'error');
+      }
+    }
+
+    async function deleteTaskAction(taskId) {
+      try {
+        await fetch(`/api/tasks/${taskId}`, { method: 'DELETE' });
+        showToast('Đã xóa task', 'info');
+        loadTasks();
+      } catch (e) {
+        showToast('Lỗi xóa task: ' + e.message, 'error');
+      }
+    }
+
+    function openAddTaskModal() {
+      document.getElementById('add-task-modal').classList.remove('hidden');
+    }
+    function closeAddTaskModal() {
+      document.getElementById('add-task-modal').classList.add('hidden');
+    }
+
+    async function submitNewTask() {
+      const title = document.getElementById('modal-task-title').value.trim();
+      const due = document.getElementById('modal-task-due').value;
+      const priority = document.getElementById('modal-task-priority').value;
+
+      if (!title) {
+        alert('Vui lòng nhập tiêu đề task');
+        return;
+      }
+      try {
+        const res = await fetch('/api/tasks', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            title: title,
+            due_date: due ? new Date(due).toISOString() : null,
+            priority: priority,
+            source_type: 'prompt'
+          })
+        });
+        if (res.ok) {
+          showToast('Đã tạo task mới thành công!', 'success');
+          closeAddTaskModal();
+          document.getElementById('modal-task-title').value = '';
+          loadTasks();
+        }
+      } catch (e) {
+        showToast('Lỗi tạo task: ' + e.message, 'error');
+      }
+    }
+
+    // Calendar Handlers
+    async function loadCalendarEvents(page = 1) {
+      const tbody = document.getElementById('cal-events-tbody');
+      try {
+        const res = await fetch(`/api/calendar/events?page=${page}&page_size=8`);
+        if (res.ok) {
+          const data = await res.json();
+          const events = data.items || [];
+          if (events.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="7" class="p-6 text-center text-slate-500">Chưa có sự kiện nào.</td></tr>';
+            return;
+          }
+          tbody.innerHTML = events.map(e => `
+            <tr class="hover:bg-slate-800/50">
+              <td class="p-3 font-medium text-white">${escapeHtml(e.title)}</td>
+              <td class="p-3 text-slate-300 font-mono text-[11px]">${escapeHtml(e.start_time || '-')}</td>
+              <td class="p-3 text-slate-300 font-mono text-[11px]">${escapeHtml(e.end_time || '-')}</td>
+              <td class="p-3"><span class="bg-amber-500/20 text-amber-300 border border-amber-500/30 px-2 py-0.5 rounded-full text-[10px]"><i class="fa-regular fa-bell mr-1"></i>${e.reminder_minutes}p</span></td>
+              <td class="p-3 text-slate-400">${escapeHtml(e.location || 'Online')}</td>
+              <td class="p-3">
+                ${e.synced_desktop
+                  ? '<span class="text-emerald-400 flex items-center gap-1"><i class="fa-solid fa-cloud-check"></i> Google Calendar</span>'
+                  : '<span class="text-sky-400 flex items-center gap-1"><i class="fa-solid fa-file-lines"></i> Chuẩn .ICS</span>'}
+              </td>
+              <td class="p-3 text-right">
+                <a href="/api/calendar/download-ics/${e.id}" class="bg-slate-800 hover:bg-slate-700 text-white px-2.5 py-1 rounded-lg text-[11px] inline-flex items-center gap-1">
+                  <i class="fa-solid fa-download"></i> .ICS
+                </a>
+              </td>
+            </tr>
+          `).join('');
+        }
+      } catch (e) {
+        tbody.innerHTML = `<tr><td colspan="7" class="p-6 text-center text-rose-400">Lỗi tải lịch: ${e.message}</td></tr>`;
+      }
+    }
+
+    async function quickScheduleFromPrompt() {
+      const text = document.getElementById('cal-quick-prompt').value.trim();
+      if (!text) return;
+      const btn = document.getElementById('btn-quick-sched');
+      btn.disabled = true;
+      btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
+      try {
+        const res = await fetch('/api/calendar/extract-and-schedule', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ text: text, reminder_minutes: 30 })
+        });
+        if (res.ok) {
+          showToast('Đã lên lịch Google Calendar thành công!', 'success');
+          document.getElementById('cal-quick-prompt').value = '';
+          loadCalendarEvents(1);
+          fetchUpcomingNotifications();
+        }
+      } catch (e) {
+        showToast('Lỗi lên lịch: ' + e.message, 'error');
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = '<span>Lên Lịch Ngay</span>';
+      }
+    }
+
+    // Inbox Handlers
+    let scannedEmails = [];
+    async function scanInboxEmails() {
+      const label = document.getElementById('inbox-label-select').value;
+      const sendersRaw = document.getElementById('inbox-whitelist-input').value.trim();
+      const senders = sendersRaw ? sendersRaw.split(',').map(s => s.trim()) : [];
+      const unreadOnly = document.getElementById('inbox-unread-only').checked;
+
+      const btn = document.getElementById('btn-scan-inbox');
+      btn.disabled = true;
+      btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-1"></i> Quét...';
+
+      try {
+        const res = await fetch('/api/emails/analyze', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            folder_name: label,
+            allowed_senders: senders,
+            limit: 10,
+            unread_only: unreadOnly
+          })
+        });
+        if (res.ok) {
+          scannedEmails = await res.json();
+          document.getElementById('inbox-email-count').innerText = `${scannedEmails.length} thư`;
+          renderInboxList();
+        }
+      } catch (e) {
+        showToast('Lỗi quét email: ' + e.message, 'error');
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fa-solid fa-magnifying-glass mr-1"></i> Quét Email';
+      }
+    }
+
+    function renderInboxList() {
+      const list = document.getElementById('inbox-email-list');
+      if (!scannedEmails.length) {
+        list.innerHTML = `<div class="p-6 text-center text-slate-500 text-xs">Không có email nào phù hợp.</div>`;
+        return;
+      }
+      list.innerHTML = scannedEmails.map((em, idx) => `
+        <div onclick="selectEmailDetail(${idx})" class="p-3 rounded-xl bg-slate-950 hover:bg-slate-800/80 border border-slate-800/80 cursor-pointer transition space-y-1">
+          <div class="flex justify-between items-start">
+            <span class="font-bold text-white text-xs truncate max-w-[200px]">${escapeHtml(em.subject)}</span>
+            <span class="text-[10px] px-2 py-0.2 rounded-full ${em.urgency === 'Khẩn cấp' ? 'bg-rose-500/20 text-rose-300' : 'bg-slate-800 text-slate-400'}">${em.urgency}</span>
+          </div>
+          <p class="text-[11px] text-slate-400 truncate">${escapeHtml(em.sender)}</p>
+        </div>
+      `).join('');
+    }
+
+    function selectEmailDetail(idx) {
+      const em = scannedEmails[idx];
+      AppState.selectedEmail = em;
+      document.getElementById('email-detail-empty').classList.add('hidden');
+      document.getElementById('email-detail-container').classList.remove('hidden');
+      document.getElementById('email-detail-subject').innerText = em.subject;
+      document.getElementById('email-detail-sender').innerText = em.sender;
+      document.getElementById('email-detail-time').innerText = em.received_time;
+      document.getElementById('email-detail-urgency').innerText = em.urgency;
+      document.getElementById('email-detail-body').innerText = em.summary;
+    }
+
+    function aiSummarizeCurrentEmail() {
+      if (!AppState.selectedEmail) return;
+      quickPrompt(`Hãy tóm tắt ngắn gọn email sau và rút ra kết luận:\nTiêu đề: ${AppState.selectedEmail.subject}\nNội dung: ${AppState.selectedEmail.summary}`);
+    }
+
+    function aiCreateCalendarFromCurrentEmail() {
+      if (!AppState.selectedEmail) return;
+      switchView('calendar');
+      document.getElementById('cal-quick-prompt').value = `Tạo lịch họp từ email: ${AppState.selectedEmail.subject}. ${AppState.selectedEmail.calendar_hint || AppState.selectedEmail.summary}`;
+      quickScheduleFromPrompt();
+    }
+
+    function aiProposeSolutionFromCurrentEmail() {
+      if (!AppState.selectedEmail) return;
+      quickPrompt(`Phân tích sự cố và đề xuất ma trận giải pháp cho email này:\n${AppState.selectedEmail.issue_description || AppState.selectedEmail.subject}`);
+    }
+
+    // Training View & RL Loop
+    async function loadFeedbackStats() {
+      try {
+        const res = await fetch('/api/feedback/stats');
+        if (res.ok) {
+          const st = await res.json();
+          document.getElementById('stat-total-fb').innerText = st.total_feedback;
+          document.getElementById('stat-positive-fb').innerText = st.positive_count;
+          document.getElementById('stat-negative-fb').innerText = st.negative_count;
+          document.getElementById('stat-corrections-fb').innerText = st.with_corrections_count;
+
+          const readyBadge = document.getElementById('sidebar-ready-train-badge');
+          if (st.with_corrections_count >= 3) {
+            readyBadge.classList.remove('hidden');
+          } else {
+            readyBadge.classList.add('hidden');
+          }
+        }
+      } catch (e) {
+        console.warn('Feedback stats error', e);
+      }
+    }
+
+    async function loadFeedbackList(page = 1) {
+      const tbody = document.getElementById('feedback-list-tbody');
+      try {
+        const res = await fetch(`/api/feedback?page=${page}&page_size=6`);
+        if (res.ok) {
+          const data = await res.json();
+          const items = data.items || [];
+          if (!items.length) {
+            tbody.innerHTML = '<tr><td colspan="6" class="p-6 text-center text-slate-500">Chưa có phản hồi nào.</td></tr>';
+            return;
+          }
+          tbody.innerHTML = items.map(it => `
+            <tr class="hover:bg-slate-800/40">
+              <td class="p-3"><span class="bg-purple-900/50 text-purple-300 font-mono px-2 py-0.5 rounded border border-purple-700/50">${escapeHtml(it.agent_type)}</span></td>
+              <td class="p-3 text-slate-300 max-w-xs truncate">${escapeHtml(it.prompt)}</td>
+              <td class="p-3 text-slate-400 max-w-xs truncate">${escapeHtml(it.response)}</td>
+              <td class="p-3 text-amber-300 max-w-xs truncate">${escapeHtml(it.corrected_response || '(Chưa sửa)')}</td>
+              <td class="p-3 font-bold ${it.rating > 0 ? 'text-emerald-400' : 'text-rose-400'}">${it.rating > 0 ? '+1' : it.rating}</td>
+              <td class="p-3 text-right text-slate-500 font-mono text-[11px]">${escapeHtml(it.created_at ? it.created_at.substring(0, 19).replace('T', ' ') : '-')}</td>
+            </tr>
+          `).join('');
+        }
+      } catch (e) {
+        tbody.innerHTML = `<tr><td colspan="6" class="p-6 text-center text-rose-400">Lỗi: ${e.message}</td></tr>`;
+      }
+    }
+
+    async function triggerDpoTraining() {
+      const btn = document.getElementById('btn-train-dpo');
+      const consoleBox = document.getElementById('training-console-logs');
+      const statusText = document.getElementById('training-status-text');
+
+      btn.disabled = true;
+      statusText.innerText = 'Đang huấn luyện...';
+      consoleBox.innerHTML += `<p class="text-purple-400 font-bold">> Bắt đầu tiến trình DPO LoRA Fine-Tuning...</p>`;
+
+      try {
+        const res = await fetch('/api/feedback/train-dpo', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ epochs: 3, lora_rank: 16 })
+        });
+        if (res.ok) {
+          const data = await res.json();
+          (data.logs || []).forEach(log => {
+            consoleBox.innerHTML += `
+              <p class="text-slate-300">
+                [${log.timestamp}] Epoch ${log.epoch} | Loss: <span class="text-emerald-400 font-bold">${log.loss}</span> | Tiến độ: <span class="text-purple-400">${log.progress_bar}</span>
+              </p>`;
+          });
+          consoleBox.innerHTML += `<p class="text-emerald-400 font-bold">> ${data.message}</p>`;
+          consoleBox.scrollTop = consoleBox.scrollHeight;
+          statusText.innerText = 'Hoàn thành';
+          showToast('Đã hoàn thành DPO Training!', 'success');
+        }
+      } catch (e) {
+        consoleBox.innerHTML += `<p class="text-rose-400">> Lỗi: ${e.message}</p>`;
+        statusText.innerText = 'Thất bại';
+      } finally {
+        btn.disabled = false;
+      }
+    }
+
+    async function reloadModelWeightsAction() {
+      showToast('Đang tải lại weights mô hình vào Ollama...', 'info');
+      try {
+        const res = await fetch('/api/feedback/reload-model', { method: 'POST' });
+        if (res.ok) {
+          const data = await res.json();
+          showToast(data.message, 'success');
+          document.getElementById('diag-model-name').innerText = data.model_name;
+          document.getElementById('diag-vram').innerText = data.vram_estimate;
+        }
+      } catch (e) {
+        showToast('Lỗi tải lại model: ' + e.message, 'error');
+      }
+    }
+
+    function exportDpoDatasetFile() {
+      window.open('/api/feedback?limit=500', '_blank');
+    }
+
+    // Documents View Handlers
+    async function loadDocumentsList() {
+      const container = document.getElementById('docs-list-container');
+      container.innerHTML = `
+        <div class="p-3 rounded-xl bg-slate-950 border border-slate-800 text-xs flex justify-between items-center cursor-pointer hover:border-slate-700" onclick="showSampleDoc()">
+          <div>
+            <p class="font-bold text-white">Q4_Finance_Report.pdf</p>
+            <p class="text-[11px] text-slate-500">24 trang • Đã phân tích</p>
+          </div>
+          <span class="text-[10px] bg-emerald-500/20 text-emerald-400 px-2 py-0.5 rounded-full">✅ Summ</span>
+        </div>
+      `;
+    }
+
+    function showSampleDoc() {
+      document.getElementById('selected-doc-title').innerText = 'Q4_Finance_Report.pdf';
+      document.getElementById('selected-doc-meta').innerText = 'Tổng số 24 trang • Đã tóm tắt điều hành';
+      document.getElementById('selected-doc-actions').classList.remove('hidden');
+      document.getElementById('doc-tab-summary').innerHTML = renderMarkdown(`### Tổng quan điều hành\n- **Doanh thu thuần**: Đạt 142 tỷ VNĐ (tăng trưởng 18.5% YoY).\n- **Chi phí vận hành**: Giảm 6.2% nhờ tối ưu quy trình AI Local.\n- **Kế hoạch tiếp theo**: Nghiệm thu dự án vào ngày 25/11.`);
+      document.getElementById('doc-deadlines-container').innerHTML = `
+        <div class="p-2.5 rounded-xl bg-slate-950 border border-slate-800 flex justify-between items-center text-xs">
+          <span class="text-amber-300 font-medium">Họp nghiệm thu tài chính: 15h30 ngày 25/11/2026</span>
+          <button onclick="quickPrompt('Lên lịch họp nghiệm thu tài chính lúc 15h30 ngày 25/11/2026')" class="bg-emerald-600 hover:bg-emerald-500 text-white px-2.5 py-1 rounded-lg text-[11px]">
+            Tạo Lịch
+          </button>
+        </div>
+      `;
+    }
+
+    function switchDocTab(tabName) {
+      document.getElementById('doc-tab-summary').classList.add('hidden');
+      document.getElementById('doc-tab-deadlines').classList.add('hidden');
+      document.getElementById('doc-tab-raw').classList.add('hidden');
+
+      document.getElementById('doc-tab-btn-summary').className = "px-3 py-2 font-medium border-b-2 border-transparent text-slate-400 hover:text-white";
+      document.getElementById('doc-tab-btn-deadlines').className = "px-3 py-2 font-medium border-b-2 border-transparent text-slate-400 hover:text-white";
+      document.getElementById('doc-tab-btn-raw').className = "px-3 py-2 font-medium border-b-2 border-transparent text-slate-400 hover:text-white";
+
+      document.getElementById(`doc-tab-${tabName}`).classList.remove('hidden');
+      document.getElementById(`doc-tab-btn-${tabName}`).className = "px-3 py-2 font-medium border-b-2 border-brand-500 text-brand-400";
+    }
+
+    // Command Palette & Keyboard Shortcuts
+    function openCommandPalette() {
+      document.getElementById('command-palette-modal').classList.remove('hidden');
+      document.getElementById('cmd-input').focus();
+    }
+    function closeCommandPalette() {
+      document.getElementById('command-palette-modal').classList.add('hidden');
+    }
+
+    function filterCommandPalette(q) {
+      const query = q.toLowerCase();
+      const btns = document.querySelectorAll('#cmd-results button');
+      btns.forEach(b => {
+        if (b.innerText.toLowerCase().includes(query)) {
+          b.style.display = 'flex';
+        } else {
+          b.style.display = 'none';
+        }
+      });
+    }
+
+    function openModelModal() {
+      document.getElementById('diag-model-name').innerText = AppState.modelInfo.name;
+      document.getElementById('diag-vram').innerText = AppState.modelInfo.vram;
+      document.getElementById('model-modal').classList.remove('hidden');
+    }
+    function closeModelModal() {
+      document.getElementById('model-modal').classList.add('hidden');
+    }
+
+    // Keyboard Shortcuts Listener
+    window.addEventListener('keydown', e => {
+      // Ctrl+K -> Command Palette
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        openCommandPalette();
+      }
+      // Ctrl+B -> Toggle Sidebar
+      else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'b') {
+        e.preventDefault();
+        toggleSidebar();
+      }
+      // Ctrl+1..6 -> Switch View
+      else if ((e.ctrlKey || e.metaKey) && ['1','2','3','4','5','6'].includes(e.key)) {
+        e.preventDefault();
+        const views = ['chat', 'docs', 'inbox', 'calendar', 'tasks', 'training'];
+        switchView(views[parseInt(e.key) - 1]);
+      }
+      // Esc -> Close modals
+      else if (e.key === 'Escape') {
+        closeCommandPalette();
+        closeModelModal();
+        closeCritiqueModal();
+        closeAddTaskModal();
+      }
+    });
+
+    // Theme Toggle (Dark / Light)
+    function toggleTheme() {
+      const html = document.documentElement;
+      const icon = document.getElementById('theme-icon');
+      if (html.classList.contains('dark')) {
+        html.classList.remove('dark');
+        html.classList.add('light');
+        icon.className = "fa-regular fa-sun text-sm";
+      } else {
+        html.classList.remove('light');
+        html.classList.add('dark');
+        icon.className = "fa-regular fa-moon text-sm";
+      }
+    }
+
+    // Initialization
+    window.addEventListener('DOMContentLoaded', async () => {
+      setupChatScrollListener();
+      checkSystemStatus();
+      fetchUpcomingNotifications();
+      loadTasks();
+
+      // Nạp danh sách phiên chat và khôi phục lịch sử nếu có phiên lưu trữ
+      await loadChatSessionsList();
+      if (AppState.activeSessionId) {
+        await loadSessionMessages(AppState.activeSessionId);
+      }
+
+      setInterval(checkSystemStatus, 15000);
+      setInterval(fetchUpcomingNotifications, 30000);
+    });
+  </script>
+</body>
+</html>
