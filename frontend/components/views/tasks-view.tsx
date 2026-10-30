@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -13,9 +13,8 @@ import {
   CheckCircle2,
   Trash2,
   Calendar,
-  Sparkles,
 } from "lucide-react";
-import { TaskItem, TasksListResponse } from "@/types";
+import { TaskItem } from "@/types";
 import { toast } from "sonner";
 import { api } from "@/lib/api";
 
@@ -86,9 +85,9 @@ export function TasksView({ onOpenAddModal, onTasksCountChange }: TasksViewProps
   );
 
   return (
-    <div className="flex-1 min-h-0 overflow-y-auto p-4 md:p-6 space-y-6 bg-slate-50/50 dark:bg-slate-950/50">
+    <div className="flex-1 min-h-0 overflow-y-auto p-4 md:p-6 space-y-6">
       {/* Header */}
-      <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-200/80 dark:border-slate-800 pb-4">
+      <div className="flex flex-wrap items-center justify-between gap-4 border-b border-white/60 dark:border-white/10 pb-4">
         <div>
           <h2 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
             <CheckSquare className="h-5 w-5 text-amber-500" />
@@ -101,7 +100,7 @@ export function TasksView({ onOpenAddModal, onTasksCountChange }: TasksViewProps
 
         <Button
           onClick={onOpenAddModal}
-          className="bg-amber-600 hover:bg-amber-500 text-white rounded-xl gap-2 shadow-sm"
+          className="bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-white rounded-xl gap-2 shadow-md shadow-amber-500/25 border border-white/20 active:scale-[0.97]"
         >
           <Plus className="h-4 w-4" />
           <span>Thêm Công Việc Mới</span>
@@ -110,7 +109,7 @@ export function TasksView({ onOpenAddModal, onTasksCountChange }: TasksViewProps
 
       {/* 3 Summary Statistic Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <Card className="rounded-2xl border-slate-200/80 dark:border-slate-800 shadow-xs">
+        <Card className="rounded-2xl shadow-glass-sm">
           <CardContent className="p-4 flex items-center justify-between">
             <div>
               <p className="text-xs text-slate-500 font-medium">Tổng Số Việc</p>
@@ -118,13 +117,13 @@ export function TasksView({ onOpenAddModal, onTasksCountChange }: TasksViewProps
                 {stats.total}
               </h3>
             </div>
-            <div className="w-10 h-10 rounded-xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-500">
+            <div className="w-10 h-10 rounded-xl bg-white/70 dark:bg-slate-800/70 border border-white/60 dark:border-white/10 flex items-center justify-center text-slate-600 dark:text-slate-300 shadow-glass-sm backdrop-blur-md">
               <ListTodo className="h-5 w-5" />
             </div>
           </CardContent>
         </Card>
 
-        <Card className="rounded-2xl border-amber-200/80 dark:border-amber-900/60 shadow-xs bg-amber-50/30 dark:bg-amber-950/20">
+        <Card className="rounded-2xl border-amber-400/40 dark:border-amber-900/60 shadow-glass-sm bg-amber-500/15 dark:bg-amber-950/20 backdrop-blur-xl">
           <CardContent className="p-4 flex items-center justify-between">
             <div>
               <p className="text-xs text-amber-700 dark:text-amber-400 font-medium">Đang Chờ Xử Lý</p>
@@ -132,13 +131,13 @@ export function TasksView({ onOpenAddModal, onTasksCountChange }: TasksViewProps
                 {stats.pending}
               </h3>
             </div>
-            <div className="w-10 h-10 rounded-xl bg-amber-100 dark:bg-amber-900/60 flex items-center justify-center text-amber-600 dark:text-amber-300">
+            <div className="w-10 h-10 rounded-xl bg-amber-500/20 dark:bg-amber-900/60 border border-amber-400/30 flex items-center justify-center text-amber-600 dark:text-amber-300 shadow-glass-sm backdrop-blur-md">
               <Clock className="h-5 w-5" />
             </div>
           </CardContent>
         </Card>
 
-        <Card className="rounded-2xl border-emerald-200/80 dark:border-emerald-900/60 shadow-xs bg-emerald-50/30 dark:bg-emerald-950/20">
+        <Card className="rounded-2xl border-emerald-400/40 dark:border-emerald-900/60 shadow-glass-sm bg-emerald-500/15 dark:bg-emerald-950/20 backdrop-blur-xl">
           <CardContent className="p-4 flex items-center justify-between">
             <div>
               <p className="text-xs text-emerald-700 dark:text-emerald-400 font-medium">Đã Hoàn Thành</p>
@@ -146,7 +145,7 @@ export function TasksView({ onOpenAddModal, onTasksCountChange }: TasksViewProps
                 {stats.completed}
               </h3>
             </div>
-            <div className="w-10 h-10 rounded-xl bg-emerald-100 dark:bg-emerald-900/60 flex items-center justify-center text-emerald-600 dark:text-emerald-300">
+            <div className="w-10 h-10 rounded-xl bg-emerald-500/20 dark:bg-emerald-900/60 border border-emerald-400/30 flex items-center justify-center text-emerald-600 dark:text-emerald-300 shadow-glass-sm backdrop-blur-md">
               <CheckCircle2 className="h-5 w-5" />
             </div>
           </CardContent>
@@ -154,7 +153,7 @@ export function TasksView({ onOpenAddModal, onTasksCountChange }: TasksViewProps
       </div>
 
       {/* Filter Bar */}
-      <Card className="rounded-2xl border-slate-200/80 dark:border-slate-800 p-3 shadow-xs">
+      <Card className="rounded-2xl p-3 shadow-glass-sm">
         <div className="flex flex-wrap items-center justify-between gap-3 text-xs">
           <div className="flex items-center space-x-1.5">
             <span className="text-slate-500 font-medium mr-1">Lọc nguồn:</span>
@@ -167,10 +166,10 @@ export function TasksView({ onOpenAddModal, onTasksCountChange }: TasksViewProps
               <button
                 key={f.id}
                 onClick={() => setSourceFilter(f.id)}
-                className={`px-3 py-1 rounded-xl font-medium transition ${
+                className={`px-3 py-1 rounded-xl font-medium transition-all duration-200 ${
                   sourceFilter === f.id
-                    ? "bg-amber-500 text-white shadow-xs"
-                    : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
+                    ? "bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-glass-sm border border-white/20"
+                    : "bg-white/60 dark:bg-slate-800/60 border border-white/70 dark:border-white/10 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-white/90"
                 }`}
               >
                 {f.label}
@@ -183,7 +182,7 @@ export function TasksView({ onOpenAddModal, onTasksCountChange }: TasksViewProps
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
-              className="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-2.5 py-1 text-xs text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-1 focus:ring-amber-500"
+              className="bg-white/70 dark:bg-slate-900/70 border border-white/70 dark:border-white/10 rounded-xl px-2.5 py-1 text-xs text-slate-700 dark:text-slate-300 backdrop-blur-md focus:outline-none focus:ring-1 focus:ring-amber-500 shadow-glass-sm"
             >
               <option value="pending">Đang chờ</option>
               <option value="completed">Đã hoàn thành</option>
@@ -198,20 +197,20 @@ export function TasksView({ onOpenAddModal, onTasksCountChange }: TasksViewProps
         {/* Today Group */}
         <div className="space-y-3">
           <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-rose-500" />
+            <span className="w-2 h-2 rounded-full bg-rose-500 shadow-[0_0_6px_rgba(244,63,94,0.6)]" />
             <span>Hôm Nay (Today)</span>
           </h3>
 
           <div className="space-y-2">
             {todayTasks.length === 0 ? (
-              <div className="p-4 rounded-xl border border-dashed border-slate-200 dark:border-slate-800 text-xs text-slate-400 text-center">
+              <div className="p-4 rounded-xl border border-dashed border-white/70 dark:border-white/15 bg-white/40 dark:bg-slate-900/40 backdrop-blur-sm text-xs text-slate-400 text-center">
                 Không có công việc nào cần nộp hôm nay.
               </div>
             ) : (
               todayTasks.map((t) => (
                 <div
                   key={t.id}
-                  className="p-3.5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 flex items-center justify-between text-xs hover:border-slate-300 dark:hover:border-slate-700 transition shadow-xs"
+                  className="p-3.5 rounded-2xl bg-white/75 dark:bg-slate-900/75 backdrop-blur-xl border border-white/70 dark:border-white/10 flex items-center justify-between text-xs hover:border-white/90 dark:hover:border-white/20 hover:shadow-glass hover:-translate-y-0.5 transition-all duration-200 shadow-glass-sm"
                 >
                   <div className="flex items-center space-x-3 flex-1 min-w-0">
                     <Checkbox
@@ -221,7 +220,7 @@ export function TasksView({ onOpenAddModal, onTasksCountChange }: TasksViewProps
                     <span
                       className={`font-medium truncate ${
                         t.status === "completed"
-                          ? "line-through text-slate-400"
+                          ? "line-through text-slate-400 dark:text-slate-500"
                           : "text-slate-900 dark:text-white"
                       }`}
                     >
@@ -241,7 +240,7 @@ export function TasksView({ onOpenAddModal, onTasksCountChange }: TasksViewProps
                     )}
                     <button
                       onClick={() => handleDeleteTask(t.id)}
-                      className="hover:text-rose-500 p-1 transition"
+                      className="hover:text-rose-500 p-1.5 rounded-lg hover:bg-white/60 dark:hover:bg-slate-800/60 transition"
                       title="Xóa công việc"
                     >
                       <Trash2 className="h-3.5 w-3.5" />
@@ -256,20 +255,20 @@ export function TasksView({ onOpenAddModal, onTasksCountChange }: TasksViewProps
         {/* Other / Upcoming Group */}
         <div className="space-y-3">
           <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-amber-500" />
+            <span className="w-2 h-2 rounded-full bg-amber-500 shadow-[0_0_6px_rgba(245,158,11,0.6)]" />
             <span>Kế Hoạch Khác & Sắp Tới</span>
           </h3>
 
           <div className="space-y-2">
             {otherTasks.length === 0 ? (
-              <div className="p-4 rounded-xl border border-dashed border-slate-200 dark:border-slate-800 text-xs text-slate-400 text-center">
+              <div className="p-4 rounded-xl border border-dashed border-white/70 dark:border-white/15 bg-white/40 dark:bg-slate-900/40 backdrop-blur-sm text-xs text-slate-400 text-center">
                 Không có công việc nào khác.
               </div>
             ) : (
               otherTasks.map((t) => (
                 <div
                   key={t.id}
-                  className="p-3.5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 flex items-center justify-between text-xs hover:border-slate-300 dark:hover:border-slate-700 transition shadow-xs"
+                  className="p-3.5 rounded-2xl bg-white/75 dark:bg-slate-900/75 backdrop-blur-xl border border-white/70 dark:border-white/10 flex items-center justify-between text-xs hover:border-white/90 dark:hover:border-white/20 hover:shadow-glass hover:-translate-y-0.5 transition-all duration-200 shadow-glass-sm"
                 >
                   <div className="flex items-center space-x-3 flex-1 min-w-0">
                     <Checkbox
@@ -279,7 +278,7 @@ export function TasksView({ onOpenAddModal, onTasksCountChange }: TasksViewProps
                     <span
                       className={`font-medium truncate ${
                         t.status === "completed"
-                          ? "line-through text-slate-400"
+                          ? "line-through text-slate-400 dark:text-slate-500"
                           : "text-slate-900 dark:text-white"
                       }`}
                     >
@@ -299,7 +298,7 @@ export function TasksView({ onOpenAddModal, onTasksCountChange }: TasksViewProps
                     )}
                     <button
                       onClick={() => handleDeleteTask(t.id)}
-                      className="hover:text-rose-500 p-1 transition"
+                      className="hover:text-rose-500 p-1.5 rounded-lg hover:bg-white/60 dark:hover:bg-slate-800/60 transition"
                       title="Xóa công việc"
                     >
                       <Trash2 className="h-3.5 w-3.5" />

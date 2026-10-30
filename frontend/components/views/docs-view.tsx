@@ -11,7 +11,6 @@ import {
   RotateCw,
   CalendarPlus,
   Clock,
-  Sparkles,
   FileCheck2,
 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
@@ -45,9 +44,9 @@ export function DocsView({ onQuickPrompt }: DocsViewProps) {
   };
 
   return (
-    <div className="flex-1 min-h-0 overflow-y-auto p-4 md:p-6 space-y-6 bg-slate-50/50 dark:bg-slate-950/50">
+    <div className="flex-1 min-h-0 overflow-y-auto p-4 md:p-6 space-y-6">
       {/* Header */}
-      <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-200/80 dark:border-slate-800 pb-4">
+      <div className="flex flex-wrap items-center justify-between gap-4 border-b border-white/60 dark:border-white/10 pb-4">
         <div>
           <h2 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
             <FileText className="h-5 w-5 text-sky-500" />
@@ -59,7 +58,7 @@ export function DocsView({ onQuickPrompt }: DocsViewProps) {
         </div>
 
         <label className="cursor-pointer">
-          <Button variant="default" className="bg-sky-600 hover:bg-sky-500 text-white rounded-xl gap-2 shadow-sm">
+          <Button variant="default" className="bg-gradient-to-r from-sky-600 to-cyan-600 hover:from-sky-500 hover:to-cyan-500 text-white rounded-xl gap-2 shadow-md shadow-sky-500/25 border border-white/20 active:scale-[0.97]">
             <UploadCloud className="h-4 w-4" />
             <span>Tải Lên PDF Mới</span>
           </Button>
@@ -70,18 +69,18 @@ export function DocsView({ onQuickPrompt }: DocsViewProps) {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Left: Document List */}
         <Card className="rounded-2xl">
-          <CardHeader className="pb-3">
+          <CardHeader className="pb-3 border-b border-white/60 dark:border-white/10">
             <CardTitle className="text-xs font-bold uppercase tracking-wider text-slate-500">
               Danh Sách Tài Liệu
             </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-2 max-h-[500px] overflow-y-auto">
+          <CardContent className="pt-3 space-y-2 max-h-[500px] overflow-y-auto">
             <div
               onClick={() => setSelectedDoc("Q4_Finance_Report.pdf")}
-              className={`p-3.5 rounded-xl border text-xs cursor-pointer transition flex items-center justify-between ${
+              className={`p-3.5 rounded-xl border text-xs cursor-pointer transition-all duration-200 flex items-center justify-between ${
                 selectedDoc === "Q4_Finance_Report.pdf"
-                  ? "bg-sky-50/70 border-sky-300 dark:bg-sky-950/60 dark:border-sky-800"
-                  : "bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 hover:border-slate-300"
+                  ? "bg-sky-500/15 border-sky-400/40 dark:bg-sky-950/60 dark:border-sky-800 shadow-glass-sm backdrop-blur-md"
+                  : "bg-white/60 dark:bg-slate-900/60 border-white/70 dark:border-white/10 hover:border-sky-300 hover:bg-white/80 dark:hover:bg-slate-800/60"
               }`}
             >
               <div className="space-y-1">
@@ -96,10 +95,10 @@ export function DocsView({ onQuickPrompt }: DocsViewProps) {
 
             <div
               onClick={() => setSelectedDoc("Kế_Hoạch_Triển_Khai_2026.pdf")}
-              className={`p-3.5 rounded-xl border text-xs cursor-pointer transition flex items-center justify-between ${
+              className={`p-3.5 rounded-xl border text-xs cursor-pointer transition-all duration-200 flex items-center justify-between ${
                 selectedDoc === "Kế_Hoạch_Triển_Khai_2026.pdf"
-                  ? "bg-sky-50/70 border-sky-300 dark:bg-sky-950/60 dark:border-sky-800"
-                  : "bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 hover:border-slate-300"
+                  ? "bg-sky-500/15 border-sky-400/40 dark:bg-sky-950/60 dark:border-sky-800 shadow-glass-sm backdrop-blur-md"
+                  : "bg-white/60 dark:bg-slate-900/60 border-white/70 dark:border-white/10 hover:border-sky-300 hover:bg-white/80 dark:hover:bg-slate-800/60"
               }`}
             >
               <div className="space-y-1">
@@ -116,7 +115,7 @@ export function DocsView({ onQuickPrompt }: DocsViewProps) {
 
         {/* Right: Document Analysis Tabs */}
         <Card className="lg:col-span-2 rounded-2xl">
-          <CardHeader className="flex flex-row items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+          <CardHeader className="flex flex-row items-center justify-between pb-3 border-b border-white/60 dark:border-white/10">
             <div>
               <CardTitle className="text-sm font-bold text-slate-900 dark:text-white">
                 {selectedDoc}
@@ -153,7 +152,7 @@ export function DocsView({ onQuickPrompt }: DocsViewProps) {
                 {sampleDeadlines.map((dl, idx) => (
                   <div
                     key={idx}
-                    className="p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50 flex items-center justify-between text-xs"
+                    className="p-3.5 rounded-xl border border-white/70 dark:border-white/10 bg-white/60 dark:bg-slate-900/60 backdrop-blur-md shadow-glass-sm flex items-center justify-between text-xs transition-all hover:bg-white/80 dark:hover:bg-slate-800/80"
                   >
                     <div className="space-y-1">
                       <p className="font-semibold text-slate-900 dark:text-white flex items-center gap-1.5">
@@ -177,7 +176,7 @@ export function DocsView({ onQuickPrompt }: DocsViewProps) {
               </TabsContent>
 
               <TabsContent value="raw" className="min-h-[220px]">
-                <pre className="p-3 bg-slate-100 dark:bg-slate-950 rounded-xl text-[11px] font-mono text-slate-600 dark:text-slate-400 whitespace-pre-wrap max-h-80 overflow-y-auto">
+                <pre className="p-3 bg-white/40 dark:bg-slate-950/80 border border-white/60 dark:border-white/10 rounded-xl text-[11px] font-mono text-slate-700 dark:text-slate-300 backdrop-blur-md whitespace-pre-wrap max-h-80 overflow-y-auto">
                   {`--- BÁO CÁO TÀI CHÍNH QUÝ 4 / NĂM TÀI KHÓA ---
 1. Tổng Doanh Thu: 142.500.000.000 VNĐ
 2. Tỷ lệ tăng trưởng EBITDA: +18.5% YoY

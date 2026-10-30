@@ -57,7 +57,7 @@ export function SendEmailModal({ open, onOpenChange, onSuccess }: SendEmailModal
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg rounded-2xl border border-slate-200 dark:border-slate-800 shadow-2xl p-6">
+      <DialogContent className="max-w-lg rounded-2xl border border-white/70 dark:border-white/15 bg-white/85 dark:bg-slate-900/85 backdrop-blur-2xl shadow-glass-lg p-6">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-base text-slate-900 dark:text-white">
             <Send className="h-4 w-4 text-rose-500" />
@@ -127,7 +127,7 @@ export function SendEmailModal({ open, onOpenChange, onSuccess }: SendEmailModal
             <Button
               type="submit"
               disabled={isSubmitting}
-              className="bg-rose-600 hover:bg-rose-500 text-white rounded-xl shadow-xs gap-1.5"
+              className="bg-gradient-to-r from-rose-600 to-pink-600 hover:from-rose-500 hover:to-pink-500 text-white rounded-xl shadow-md shadow-rose-500/25 border border-white/20 active:scale-[0.97] gap-1.5"
             >
               <Send className="h-3 w-3" />
               <span>{isSubmitting ? "Đang gửi..." : "Gửi Thư"}</span>

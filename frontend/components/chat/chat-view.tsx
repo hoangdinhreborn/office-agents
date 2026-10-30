@@ -3,8 +3,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { MessageBubble } from "@/components/chat/message-bubble";
 import { Composer } from "@/components/chat/composer";
-import { Button } from "@/components/ui/button";
-import { ArrowDown, Sparkles, FileText, Mail, Calendar, Lightbulb } from "lucide-react";
+import { ArrowDown, FileText, Mail, Calendar, Lightbulb } from "lucide-react";
 import { ChatMessageItem } from "@/types";
 
 interface ChatViewProps {
@@ -54,7 +53,7 @@ export function ChatView({
   };
 
   return (
-    <div className="flex-1 min-h-0 flex flex-col overflow-hidden relative bg-slate-50/50 dark:bg-slate-950/50">
+    <div className="flex-1 min-h-0 flex flex-col overflow-hidden relative">
       {/* Scrollable Chat Messages Container */}
       <div
         ref={scrollRef}
@@ -64,14 +63,14 @@ export function ChatView({
         {messages.length === 0 ? (
           /* Welcome Card with Quick Starters */
           <div className="flex items-start space-x-3 max-w-3xl">
-            <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-indigo-600 to-violet-500 flex items-center justify-center flex-shrink-0 text-white font-bold text-xs shadow-md shadow-indigo-500/20">
+            <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-cyan-500 via-indigo-600 to-violet-600 flex items-center justify-center flex-shrink-0 text-white font-bold text-xs shadow-md shadow-indigo-500/25 border border-white/30 backdrop-blur-md">
               AI
             </div>
-            <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 p-5 rounded-2xl rounded-tl-sm shadow-xs space-y-3 flex-1 text-slate-800 dark:text-slate-200">
+            <div className="bg-white/75 dark:bg-slate-900/75 backdrop-blur-xl border border-white/70 dark:border-white/10 p-5 rounded-2xl rounded-tl-sm shadow-glass space-y-3 flex-1 text-slate-800 dark:text-slate-200">
               <div className="space-y-1">
                 <p className="font-semibold text-slate-900 dark:text-white flex items-center gap-2 text-sm">
                   Xin chào! Tôi là Trợ lý Multi-Agent hoạt động hoàn toàn tại Local.
-                  <span className="text-[10px] bg-indigo-50 text-indigo-600 border border-indigo-200 dark:bg-indigo-950/60 dark:text-indigo-400 dark:border-indigo-800 px-2 py-0.5 rounded-full font-mono font-medium">
+                  <span className="text-[10px] bg-indigo-500/15 text-indigo-700 border border-indigo-400/30 dark:bg-indigo-950/60 dark:text-indigo-400 dark:border-indigo-800 px-2 py-0.5 rounded-full font-mono font-medium shadow-xs">
                     01 Local LLM
                   </span>
                 </p>
@@ -84,9 +83,9 @@ export function ChatView({
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-1 text-xs">
                 <button
                   onClick={() => onQuickPrompt("Tóm tắt tài liệu PDF và trích xuất các hạn chót quan trọng")}
-                  className="text-left p-3 rounded-xl bg-slate-50 hover:bg-indigo-50/70 border border-slate-200/80 hover:border-indigo-300 dark:bg-slate-800/60 dark:hover:bg-slate-800 dark:border-slate-700/80 transition group"
+                  className="text-left p-3.5 rounded-xl bg-white/60 hover:bg-sky-50/70 border border-white/70 hover:border-sky-300 dark:bg-slate-800/60 dark:hover:bg-slate-800 dark:border-white/10 dark:hover:border-sky-500/40 backdrop-blur-md shadow-glass-sm hover:shadow-glass hover:-translate-y-0.5 transition-all duration-300 group"
                 >
-                  <div className="flex items-center gap-2 font-semibold text-slate-800 dark:text-slate-100 group-hover:text-indigo-600 dark:group-hover:text-indigo-400">
+                  <div className="flex items-center gap-2 font-semibold text-slate-800 dark:text-slate-100 group-hover:text-sky-600 dark:group-hover:text-sky-400">
                     <FileText className="h-4 w-4 text-sky-500" />
                     <span>Tóm tắt PDF 4 phần</span>
                   </div>
@@ -97,7 +96,7 @@ export function ChatView({
 
                 <button
                   onClick={() => onQuickPrompt("Đọc email mới từ sếp, nếu có sự cố hãy đề xuất giải pháp xử lý")}
-                  className="text-left p-3 rounded-xl bg-slate-50 hover:bg-rose-50/70 border border-slate-200/80 hover:border-rose-300 dark:bg-slate-800/60 dark:hover:bg-slate-800 dark:border-slate-700/80 transition group"
+                  className="text-left p-3.5 rounded-xl bg-white/60 hover:bg-rose-50/70 border border-white/70 hover:border-rose-300 dark:bg-slate-800/60 dark:hover:bg-slate-800 dark:border-white/10 dark:hover:border-rose-500/40 backdrop-blur-md shadow-glass-sm hover:shadow-glass hover:-translate-y-0.5 transition-all duration-300 group"
                 >
                   <div className="flex items-center gap-2 font-semibold text-slate-800 dark:text-slate-100 group-hover:text-rose-600 dark:group-hover:text-rose-400">
                     <Mail className="h-4 w-4 text-rose-500" />
@@ -110,7 +109,7 @@ export function ChatView({
 
                 <button
                   onClick={() => onQuickPrompt("Tạo lịch họp nghiệm thu dự án lúc 15h30 chiều mai, nhắc trước 30 phút")}
-                  className="text-left p-3 rounded-xl bg-slate-50 hover:bg-emerald-50/70 border border-slate-200/80 hover:border-emerald-300 dark:bg-slate-800/60 dark:hover:bg-slate-800 dark:border-slate-700/80 transition group"
+                  className="text-left p-3.5 rounded-xl bg-white/60 hover:bg-emerald-50/70 border border-white/70 hover:border-emerald-300 dark:bg-slate-800/60 dark:hover:bg-slate-800 dark:border-white/10 dark:hover:border-emerald-500/40 backdrop-blur-md shadow-glass-sm hover:shadow-glass hover:-translate-y-0.5 transition-all duration-300 group"
                 >
                   <div className="flex items-center gap-2 font-semibold text-slate-800 dark:text-slate-100 group-hover:text-emerald-600 dark:group-hover:text-emerald-400">
                     <Calendar className="h-4 w-4 text-emerald-500" />
@@ -123,7 +122,7 @@ export function ChatView({
 
                 <button
                   onClick={() => onQuickPrompt("Đề xuất ma trận giải pháp khắc phục sự cố máy chủ thanh toán bị timeout")}
-                  className="text-left p-3 rounded-xl bg-slate-50 hover:bg-amber-50/70 border border-slate-200/80 hover:border-amber-300 dark:bg-slate-800/60 dark:hover:bg-slate-800 dark:border-slate-700/80 transition group"
+                  className="text-left p-3.5 rounded-xl bg-white/60 hover:bg-amber-50/70 border border-white/70 hover:border-amber-300 dark:bg-slate-800/60 dark:hover:bg-slate-800 dark:border-white/10 dark:hover:border-amber-500/40 backdrop-blur-md shadow-glass-sm hover:shadow-glass hover:-translate-y-0.5 transition-all duration-300 group"
                 >
                   <div className="flex items-center gap-2 font-semibold text-slate-800 dark:text-slate-100 group-hover:text-amber-600 dark:group-hover:text-amber-400">
                     <Lightbulb className="h-4 w-4 text-amber-500" />
@@ -156,11 +155,11 @@ export function ChatView({
         {/* Loading Indicator */}
         {isLoading && (
           <div className="flex items-center space-x-3 max-w-3xl">
-            <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-indigo-600 to-violet-500 text-white flex items-center justify-center flex-shrink-0 text-xs font-bold shadow-md shadow-indigo-500/20">
+            <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-cyan-500 via-indigo-600 to-violet-600 text-white flex items-center justify-center flex-shrink-0 text-xs font-bold shadow-md shadow-indigo-500/25 border border-white/30 backdrop-blur-md">
               AI
             </div>
-            <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl rounded-tl-sm p-4 text-xs text-slate-500 flex items-center gap-2 shadow-xs">
-              <span className="flex h-2 w-2 rounded-full bg-indigo-600 animate-ping" />
+            <div className="bg-white/75 dark:bg-slate-900/75 backdrop-blur-xl border border-white/70 dark:border-white/10 rounded-2xl rounded-tl-sm p-4 text-xs text-slate-600 dark:text-slate-300 flex items-center gap-2.5 shadow-glass-sm">
+              <span className="flex h-2.5 w-2.5 rounded-full bg-indigo-600 animate-ping" />
               <span>Đang suy luận và xử lý qua Multi-Agent Orchestrator...</span>
             </div>
           </div>
@@ -171,7 +170,7 @@ export function ChatView({
       {showScrollBottom && (
         <button
           onClick={() => scrollToBottom(true)}
-          className="absolute bottom-24 right-8 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 p-2 rounded-full shadow-lg border border-slate-200 dark:border-slate-700 text-xs transition-all hover:bg-slate-100 dark:hover:bg-slate-700 z-20"
+          className="absolute bottom-24 right-8 bg-white/80 dark:bg-slate-800/80 backdrop-blur-xl text-slate-700 dark:text-slate-200 p-2.5 rounded-full shadow-glass-lg border border-white/70 dark:border-white/15 text-xs transition-all hover:bg-white hover:-translate-y-0.5 z-20"
           title="Cuộn xuống dưới cùng"
         >
           <ArrowDown className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />

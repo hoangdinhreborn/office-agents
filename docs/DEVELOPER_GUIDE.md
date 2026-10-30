@@ -62,7 +62,9 @@ local-ai-assistant/
 │   └── documents/                      # Thư mục lưu file PDF upload
 └── docs/
     ├── DEVELOPER_GUIDE.md
-    └── USER_GUIDE.md
+    ├── USER_GUIDE.md
+    ├── OAUTH_SETUP.md
+    └── ORAL_DEFENSE_GUIDE.md
 ```
 
 ---

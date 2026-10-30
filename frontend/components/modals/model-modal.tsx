@@ -38,7 +38,7 @@ export function ModelModal({ open, onOpenChange, status, onReloadSuccess }: Mode
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md rounded-2xl border border-slate-200 dark:border-slate-800 shadow-2xl p-6">
+      <DialogContent className="max-w-md rounded-2xl border border-white/70 dark:border-white/15 bg-white/85 dark:bg-slate-900/85 backdrop-blur-2xl shadow-glass-lg p-6">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-base text-slate-900 dark:text-white">
             <Cpu className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
@@ -50,14 +50,14 @@ export function ModelModal({ open, onOpenChange, status, onReloadSuccess }: Mode
         </DialogHeader>
 
         <div className="space-y-2.5 text-xs text-slate-700 dark:text-slate-300 py-2">
-          <div className="flex justify-between items-center py-1.5 border-b border-slate-100 dark:border-slate-800/80">
+          <div className="flex justify-between items-center py-1.5 border-b border-white/60 dark:border-white/10">
             <span className="text-slate-500">Tên mô hình:</span>
             <span className="font-mono font-bold text-indigo-600 dark:text-indigo-400">
               {modelName}
             </span>
           </div>
 
-          <div className="flex justify-between items-center py-1.5 border-b border-slate-100 dark:border-slate-800/80">
+          <div className="flex justify-between items-center py-1.5 border-b border-white/60 dark:border-white/10">
             <span className="text-slate-500">Trạng thái kết nối:</span>
             <span className="flex items-center gap-1.5 font-medium">
               {isOnline ? (
@@ -74,28 +74,28 @@ export function ModelModal({ open, onOpenChange, status, onReloadSuccess }: Mode
             </span>
           </div>
 
-          <div className="flex justify-between items-center py-1.5 border-b border-slate-100 dark:border-slate-800/80">
+          <div className="flex justify-between items-center py-1.5 border-b border-white/60 dark:border-white/10">
             <span className="text-slate-500">VRAM ước tính:</span>
             <span className="font-mono text-emerald-600 dark:text-emerald-400 font-semibold">
               ~5.8 GB - 18.2 GB
             </span>
           </div>
 
-          <div className="flex justify-between items-center py-1.5 border-b border-slate-100 dark:border-slate-800/80">
+          <div className="flex justify-between items-center py-1.5 border-b border-white/60 dark:border-white/10">
             <span className="text-slate-500">Context Window:</span>
             <span className="font-mono text-slate-900 dark:text-white font-semibold">
               32,768 tokens
             </span>
           </div>
 
-          <div className="flex justify-between items-center py-1.5 border-b border-slate-100 dark:border-slate-800/80">
+          <div className="flex justify-between items-center py-1.5 border-b border-white/60 dark:border-white/10">
             <span className="text-slate-500">Quantization:</span>
             <span className="font-mono text-amber-600 dark:text-amber-400 font-semibold">
               Q4_K_M
             </span>
           </div>
 
-          <div className="flex justify-between items-center py-1.5 border-b border-slate-100 dark:border-slate-800/80">
+          <div className="flex justify-between items-center py-1.5 border-b border-white/60 dark:border-white/10">
             <span className="text-slate-500">Ollama Base URL:</span>
             <span className="font-mono text-slate-400">http://localhost:11434</span>
           </div>
@@ -112,7 +112,7 @@ export function ModelModal({ open, onOpenChange, status, onReloadSuccess }: Mode
           </Button>
           <Button
             onClick={handleReload}
-            className="bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl shadow-xs gap-1.5"
+            className="bg-gradient-to-r from-indigo-600 via-indigo-500 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white rounded-xl shadow-md shadow-indigo-500/25 border border-white/20 active:scale-[0.97] gap-1.5"
           >
             <RotateCw className="h-3.5 w-3.5" />
             <span>Tải Lại Mô Hình</span>

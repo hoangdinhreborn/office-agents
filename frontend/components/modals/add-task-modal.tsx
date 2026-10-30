@@ -58,7 +58,7 @@ export function AddTaskModal({ open, onOpenChange, onSuccess }: AddTaskModalProp
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md rounded-2xl border border-slate-200 dark:border-slate-800 shadow-2xl p-6">
+      <DialogContent className="max-w-md rounded-2xl border border-white/70 dark:border-white/15 bg-white/85 dark:bg-slate-900/85 backdrop-blur-2xl shadow-glass-lg p-6">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-base text-slate-900 dark:text-white">
             <CheckSquare className="h-4 w-4 text-amber-500" />
@@ -101,7 +101,7 @@ export function AddTaskModal({ open, onOpenChange, onSuccess }: AddTaskModalProp
             </label>
             <select
               {...register("priority")}
-              className="w-full bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-1 focus:ring-amber-500"
+              className="w-full bg-white/70 dark:bg-slate-950/70 border border-white/70 dark:border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-800 dark:text-slate-200 backdrop-blur-md focus:outline-none focus:ring-1 focus:ring-amber-500 shadow-glass-sm"
             >
               <option value="medium">Bình thường (Medium)</option>
               <option value="high">Cao (High - Khẩn cấp)</option>
@@ -121,7 +121,7 @@ export function AddTaskModal({ open, onOpenChange, onSuccess }: AddTaskModalProp
             <Button
               type="submit"
               disabled={isSubmitting}
-              className="bg-amber-600 hover:bg-amber-500 text-white rounded-xl shadow-xs"
+              className="bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-white rounded-xl shadow-md shadow-amber-500/25 border border-white/20 active:scale-[0.97]"
             >
               {isSubmitting ? "Đang tạo..." : "Tạo Việc"}
             </Button>

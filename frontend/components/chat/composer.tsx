@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useRef, useState, useEffect } from "react";
+import React, { useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Send,
@@ -9,7 +9,6 @@ import {
   X,
   Mic,
   MicOff,
-  Sparkles,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -126,11 +125,11 @@ export function Composer({
   };
 
   return (
-    <div className="p-3 md:p-4 border-t border-slate-200/80 dark:border-slate-800 bg-white/90 dark:bg-slate-900/90 backdrop-blur-md z-10 flex-shrink-0">
+    <div className="p-3 md:p-4 border-t border-white/70 dark:border-white/10 bg-white/75 dark:bg-slate-900/75 backdrop-blur-2xl z-10 flex-shrink-0 shadow-[0_-8px_32px_0_rgba(31,38,135,0.04)]">
       <div className="max-w-4xl mx-auto space-y-2">
         {/* Schedule Detected Alert */}
         {hasScheduleHint && (
-          <div className="flex items-center justify-between bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-300 dark:border-emerald-800 px-3.5 py-1.5 rounded-xl text-xs text-emerald-800 dark:text-emerald-300 animate-in fade-in">
+          <div className="flex items-center justify-between bg-emerald-500/15 dark:bg-emerald-950/60 border border-emerald-400/40 dark:border-emerald-700/60 px-3.5 py-1.5 rounded-xl text-xs text-emerald-800 dark:text-emerald-300 backdrop-blur-md shadow-xs animate-in fade-in">
             <span className="flex items-center gap-2">
               <CalendarCheck2 className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
               <span>
@@ -139,7 +138,7 @@ export function Composer({
             </span>
             <button
               onClick={() => setHasScheduleHint(false)}
-              className="text-emerald-600 hover:text-emerald-700 dark:text-emerald-400"
+              className="text-emerald-600 hover:text-emerald-700 dark:text-emerald-400 p-0.5 rounded-lg hover:bg-emerald-500/20 transition"
             >
               <X className="h-3.5 w-3.5" />
             </button>
@@ -148,12 +147,12 @@ export function Composer({
 
         {/* Attached PDF Chip */}
         {attachedFile && (
-          <div className="flex items-center gap-2 bg-indigo-50 dark:bg-slate-800 border border-indigo-200 dark:border-slate-700 px-3 py-1 rounded-xl text-xs text-indigo-900 dark:text-slate-200 w-fit">
+          <div className="flex items-center gap-2 bg-indigo-500/15 dark:bg-slate-800/80 border border-indigo-400/40 dark:border-slate-700 px-3 py-1 rounded-xl text-xs text-indigo-900 dark:text-slate-200 w-fit backdrop-blur-md shadow-xs">
             <Paperclip className="h-3.5 w-3.5 text-indigo-600 dark:text-indigo-400" />
             <span className="font-medium">{attachedFile.name}</span>
             <button
               onClick={() => onAttachFile(null)}
-              className="text-slate-400 hover:text-rose-500 ml-1"
+              className="text-slate-400 hover:text-rose-500 ml-1 rounded-md p-0.5 hover:bg-rose-500/10 transition"
             >
               <X className="h-3.5 w-3.5" />
             </button>
@@ -161,7 +160,7 @@ export function Composer({
         )}
 
         {/* Input Box */}
-        <div className="relative rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-slate-50/80 dark:bg-slate-950/80 focus-within:border-indigo-500 focus-within:ring-1 focus-within:ring-indigo-500/20 shadow-xs transition-all">
+        <div className="relative rounded-2xl border border-white/70 dark:border-white/10 bg-white/70 dark:bg-slate-950/50 backdrop-blur-xl focus-within:border-indigo-400 focus-within:ring-2 focus-within:ring-indigo-400/20 shadow-inner transition-all duration-200">
           <textarea
             ref={textareaRef}
             rows={2}
@@ -177,7 +176,7 @@ export function Composer({
             <div className="flex items-center space-x-1.5">
               {/* File Upload */}
               <label
-                className="cursor-pointer text-slate-500 hover:text-indigo-600 dark:text-slate-400 dark:hover:text-indigo-400 hover:bg-slate-200/60 dark:hover:bg-slate-800 p-1.5 rounded-lg transition"
+                className="cursor-pointer text-slate-500 hover:text-indigo-600 dark:text-slate-400 dark:hover:text-indigo-400 hover:bg-white/60 dark:hover:bg-slate-800/60 p-1.5 rounded-xl transition backdrop-blur-sm"
                 title="Đính kèm tài liệu PDF"
               >
                 <Paperclip className="h-4 w-4" />
@@ -194,7 +193,7 @@ export function Composer({
               <select
                 value={selectedAgent}
                 onChange={(e) => onSelectAgent(e.target.value)}
-                className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 text-xs rounded-xl px-2.5 py-1 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                className="bg-white/80 dark:bg-slate-900/80 border border-white/70 dark:border-white/10 text-slate-700 dark:text-slate-300 text-xs rounded-xl px-2.5 py-1 backdrop-blur-md focus:outline-none focus:ring-1 focus:ring-indigo-500 shadow-glass-sm transition-all"
               >
                 <option value="auto">🤖 Agent: Tự Động (Auto)</option>
                 <option value="summarizer">📝 Summarizer Agent</option>
@@ -209,10 +208,10 @@ export function Composer({
                 variant="ghost"
                 size="icon"
                 onClick={toggleVoice}
-                className={`h-7 w-7 ${
+                className={`h-7 w-7 rounded-xl transition-all ${
                   isListening
-                    ? "text-rose-500 animate-pulse bg-rose-50 dark:bg-rose-950/60"
-                    : "text-slate-500 hover:text-indigo-600 dark:text-slate-400"
+                    ? "text-rose-500 animate-pulse bg-rose-500/20 border border-rose-400/40"
+                    : "text-slate-500 hover:text-indigo-600 dark:text-slate-400 hover:bg-white/60 dark:hover:bg-slate-800/60"
                 }`}
                 title="Nhập giọng nói (Web Speech API)"
               >
@@ -224,7 +223,7 @@ export function Composer({
             <Button
               onClick={handleSubmit}
               disabled={isLoading || (!text.trim() && !attachedFile)}
-              className="bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl px-4 py-1.5 h-8 gap-1.5 shadow-md shadow-indigo-600/20"
+              className="bg-gradient-to-r from-indigo-600 via-indigo-500 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white rounded-xl px-4 py-1.5 h-8 gap-1.5 shadow-md shadow-indigo-600/25 border border-white/20 active:scale-[0.97]"
             >
               <span>Gửi</span>
               <Send className="h-3 w-3" />

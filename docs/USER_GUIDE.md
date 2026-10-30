@@ -114,3 +114,11 @@ Bạn có thể chỉnh sửa file `.env` tại thư mục gốc để cấu hì
 - `GMAIL_LABEL`: Nhãn Gmail mặc định cần đọc (mặc định: `INBOX`).
 - `ALLOWED_SENDERS`: Danh sách email người gửi cho phép mặc định (để trống = cho phép tất cả).
 - `CALENDAR_DEFAULT_REMINDER_MINUTES`: Số phút nhắc trước mặc định (mặc định: `30` phút).
+
+---
+
+## 4. Tài Liệu Hỗ Trợ Khác
+
+- 📖 [Hướng Dẫn Thiết Lập OAuth 2.0 (Google Calendar & Gmail API)](./OAUTH_SETUP.md)
+- 🛠️ [Hướng Dẫn Kỹ Thuật Dành Cho Lập Trình Viên (Developer Guide)](./DEVELOPER_GUIDE.md)
+- 🎓 [Cẩm Nang Vấn Đáp Bảo Vệ Đồ Án Với Giáo Viên Siêu Khó](./ORAL_DEFENSE_GUIDE.md)

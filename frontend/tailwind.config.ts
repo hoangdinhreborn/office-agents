@@ -63,6 +63,17 @@ const config: Config = {
           900: "#312e81",
         },
       },
+      boxShadow: {
+        glass: "0 8px 32px 0 rgba(31, 38, 135, 0.06)",
+        "glass-sm": "0 4px 16px 0 rgba(31, 38, 135, 0.04)",
+        "glass-lg": "0 16px 48px 0 rgba(31, 38, 135, 0.12)",
+        "glass-glow": "0 0 24px -4px rgba(99, 102, 241, 0.25)",
+        "glass-glow-cyan": "0 0 24px -4px rgba(6, 182, 212, 0.25)",
+        "glass-glow-emerald": "0 0 24px -4px rgba(16, 185, 129, 0.25)",
+        "glass-glow-rose": "0 0 24px -4px rgba(244, 63, 94, 0.25)",
+        "glass-glow-amber": "0 0 24px -4px rgba(245, 158, 11, 0.25)",
+        "glass-glow-purple": "0 0 24px -4px rgba(168, 85, 247, 0.25)",
+      },
       borderRadius: {
         lg: "var(--radius)",
         md: "calc(var(--radius) - 2px)",

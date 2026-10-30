@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -93,9 +93,9 @@ export function InboxView({ onQuickPrompt, onOpenSendModal }: InboxViewProps) {
   };
 
   return (
-    <div className="flex-1 min-h-0 overflow-y-auto p-4 md:p-6 space-y-6 bg-slate-50/50 dark:bg-slate-950/50">
+    <div className="flex-1 min-h-0 overflow-y-auto p-4 md:p-6 space-y-6">
       {/* Header */}
-      <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-200/80 dark:border-slate-800 pb-4">
+      <div className="flex flex-wrap items-center justify-between gap-4 border-b border-white/60 dark:border-white/10 pb-4">
         <div>
           <h2 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
             <Mail className="h-5 w-5 text-rose-500" />
@@ -108,7 +108,7 @@ export function InboxView({ onQuickPrompt, onOpenSendModal }: InboxViewProps) {
 
         <Button
           onClick={onOpenSendModal}
-          className="bg-rose-600 hover:bg-rose-500 text-white rounded-xl gap-2 shadow-sm"
+          className="bg-gradient-to-r from-rose-600 to-pink-600 hover:from-rose-500 hover:to-pink-500 text-white rounded-xl gap-2 shadow-md shadow-rose-500/25 border border-white/20 active:scale-[0.97]"
         >
           <Send className="h-4 w-4" />
           <span>Soạn Thư Mới</span>
@@ -116,14 +116,14 @@ export function InboxView({ onQuickPrompt, onOpenSendModal }: InboxViewProps) {
       </div>
 
       {/* Filter Toolbar */}
-      <Card className="rounded-2xl border-slate-200/80 dark:border-slate-800 p-3.5 shadow-xs">
+      <Card className="rounded-2xl p-3.5 shadow-glass-sm">
         <div className="flex flex-wrap items-center gap-3 text-xs">
           <div className="flex items-center gap-2">
             <span className="text-slate-500 font-medium">Nhãn Gmail:</span>
             <select
               value={folder}
               onChange={(e) => setFolder(e.target.value)}
-              className="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-2.5 py-1 text-xs text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-1 focus:ring-rose-500"
+              className="bg-white/70 dark:bg-slate-900/70 border border-white/70 dark:border-white/10 rounded-xl px-2.5 py-1 text-xs text-slate-800 dark:text-slate-200 backdrop-blur-md focus:outline-none focus:ring-1 focus:ring-rose-500 shadow-glass-sm"
             >
               <option value="INBOX">INBOX</option>
               <option value="STARRED">STARRED</option>
@@ -154,7 +154,7 @@ export function InboxView({ onQuickPrompt, onOpenSendModal }: InboxViewProps) {
             size="sm"
             onClick={handleScanEmails}
             disabled={isScanning}
-            className="bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl gap-1.5 h-8 text-xs"
+            className="bg-gradient-to-r from-indigo-600 via-indigo-500 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white rounded-xl gap-1.5 h-8 text-xs shadow-md shadow-indigo-500/20 border border-white/20 active:scale-[0.97]"
           >
             <Search className="h-3.5 w-3.5" />
             <span>{isScanning ? "Đang quét..." : "Quét Email"}</span>
@@ -166,7 +166,7 @@ export function InboxView({ onQuickPrompt, onOpenSendModal }: InboxViewProps) {
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
         {/* Left Column: Email List (2 cols) */}
         <Card className="lg:col-span-2 rounded-2xl">
-          <CardHeader className="pb-3 border-b border-slate-100 dark:border-slate-800">
+          <CardHeader className="pb-3 border-b border-white/60 dark:border-white/10">
             <CardTitle className="text-xs font-bold uppercase tracking-wider text-slate-500 flex justify-between items-center">
               <span>Danh Sách Email</span>
               <Badge variant="outline" className="font-mono text-[10px]">
@@ -182,10 +182,10 @@ export function InboxView({ onQuickPrompt, onOpenSendModal }: InboxViewProps) {
                 <div
                   key={em.id}
                   onClick={() => setSelectedEmail(em)}
-                  className={`p-3.5 rounded-xl border text-xs cursor-pointer transition space-y-1.5 ${
+                  className={`p-3.5 rounded-xl border text-xs cursor-pointer transition-all duration-200 space-y-1.5 ${
                     isSelected
-                      ? "bg-rose-50/70 border-rose-300 dark:bg-rose-950/60 dark:border-rose-900"
-                      : "bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 hover:border-slate-300"
+                      ? "bg-rose-500/15 border-rose-400/40 dark:bg-rose-950/60 dark:border-rose-900 shadow-glass-sm backdrop-blur-md"
+                      : "bg-white/60 dark:bg-slate-900/60 border-white/70 dark:border-white/10 hover:border-rose-300 hover:bg-white/80 dark:hover:bg-slate-800/60"
                   }`}
                 >
                   <div className="flex justify-between items-start gap-2">
@@ -217,7 +217,7 @@ export function InboxView({ onQuickPrompt, onOpenSendModal }: InboxViewProps) {
         <Card className="lg:col-span-3 rounded-2xl">
           {selectedEmail ? (
             <>
-              <CardHeader className="border-b border-slate-100 dark:border-slate-800 pb-4">
+              <CardHeader className="border-b border-white/60 dark:border-white/10 pb-4">
                 <div className="flex items-start justify-between gap-3">
                   <div className="space-y-1">
                     <CardTitle className="text-sm font-bold text-slate-900 dark:text-white leading-snug">
@@ -244,7 +244,7 @@ export function InboxView({ onQuickPrompt, onOpenSendModal }: InboxViewProps) {
                 </div>
 
                 {/* 3 AI Quick Action Triggers */}
-                <div className="flex flex-wrap items-center gap-2 pt-3 border-t border-slate-100 dark:border-slate-800">
+                <div className="flex flex-wrap items-center gap-2 pt-3 border-t border-white/60 dark:border-white/10">
                   <Button
                     size="sm"
                     variant="outline"
@@ -293,7 +293,7 @@ export function InboxView({ onQuickPrompt, onOpenSendModal }: InboxViewProps) {
                 <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">
                   Nội Dung Thư & Phân Tích:
                 </p>
-                <div className="bg-slate-50 dark:bg-slate-950 p-4 rounded-xl border border-slate-200 dark:border-slate-800 text-xs text-slate-700 dark:text-slate-300 leading-relaxed whitespace-pre-wrap min-h-[220px]">
+                <div className="bg-white/50 dark:bg-slate-950/50 backdrop-blur-md p-4 rounded-xl border border-white/60 dark:border-white/10 text-xs text-slate-700 dark:text-slate-300 leading-relaxed whitespace-pre-wrap min-h-[220px]">
                   {selectedEmail.summary}
                 </div>
               </CardContent>

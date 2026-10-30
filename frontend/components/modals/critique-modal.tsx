@@ -74,7 +74,7 @@ export function CritiqueModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg rounded-2xl border border-slate-200 dark:border-slate-800 shadow-2xl p-6">
+      <DialogContent className="max-w-lg rounded-2xl border border-white/70 dark:border-white/15 bg-white/85 dark:bg-slate-900/85 backdrop-blur-2xl shadow-glass-lg p-6">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-base text-slate-900 dark:text-white">
             <PenSquare className="h-4 w-4 text-purple-600" />
@@ -90,7 +90,7 @@ export function CritiqueModal({
             <label className="font-semibold text-slate-700 dark:text-slate-300">
               Câu hỏi ban đầu của bạn:
             </label>
-            <div className="bg-slate-50 dark:bg-slate-950 p-3 rounded-xl border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 italic font-mono text-[11px]">
+            <div className="bg-white/50 dark:bg-slate-950/50 backdrop-blur-md p-3 rounded-xl border border-white/60 dark:border-white/10 text-slate-700 dark:text-slate-300 italic font-mono text-[11px]">
               {prompt || "..."}
             </div>
           </div>
@@ -133,7 +133,7 @@ export function CritiqueModal({
             <Button
               type="submit"
               disabled={isSubmitting}
-              className="bg-purple-600 hover:bg-purple-500 text-white rounded-xl shadow-xs gap-1.5"
+              className="bg-gradient-to-r from-purple-600 to-fuchsia-600 hover:from-purple-500 hover:to-fuchsia-500 text-white rounded-xl shadow-md shadow-purple-500/25 border border-white/20 active:scale-[0.97] gap-1.5"
             >
               <Sparkles className="h-3.5 w-3.5" />
               <span>{isSubmitting ? "Đang lưu..." : "Lưu Cặp DPO"}</span>

@@ -1,0 +1,57 @@
+<svg width="32" height="32" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="dh-icon-grad" x1="4" y1="4" x2="44" y2="44" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stopColor="#06b6d4" />
+      <stop offset="35%" stopColor="#3b82f6" />
+      <stop offset="70%" stopColor="#6366f1" />
+      <stop offset="100%" stopColor="#8b5cf6" />
+    </linearGradient>
+    <linearGradient id="dh-icon-sheen" x1="12" y1="6" x2="36" y2="38" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stopColor="#ffffff" stopOpacity="0.85" />
+      <stop offset="50%" stopColor="#ffffff" stopOpacity="0.2" />
+      <stop offset="100%" stopColor="#ffffff" stopOpacity="0" />
+    </linearGradient>
+    <linearGradient id="dh-icon-core" x1="18" y1="18" x2="30" y2="30" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stopColor="#38bdf8" />
+      <stop offset="100%" stopColor="#c084fc" />
+    </linearGradient>
+  </defs>
+
+  <rect width="48" height="48" rx="12" fill="#ffffff" fill-opacity="0.05"/>
+
+  <!-- Outer Hexagon -->
+  <path
+    d="M24 4L38 12.08V28.25L24 36.33L10 28.25V12.08L24 4Z"
+    fill="url(#dh-icon-grad)"
+  />
+
+  <!-- Glass Inner Facet -->
+  <path
+    d="M24 7.5L34.5 13.56V25.69L24 31.75L13.5 25.69V13.56L24 7.5Z"
+    fill="#ffffff"
+    fill-opacity="0.18"
+    stroke="url(#dh-icon-sheen)"
+    stroke-width="1.2"
+  />
+
+  <!-- Hive Interconnections -->
+  <path
+    d="M24 7.5V19.5M24 31.75V19.5M13.5 25.69L24 19.5M34.5 13.56L24 19.5"
+    stroke="#ffffff"
+    stroke-width="1.2"
+    stroke-opacity="0.45"
+    stroke-linecap="round"
+  />
+
+  <!-- Central Hex Cell Core -->
+  <polygon
+    points="24,14.5 29,17.4 29,23.2 24,26.1 19,23.2 19,17.4"
+    fill="url(#dh-icon-core)"
+    stroke="#ffffff"
+    stroke-width="1.2"
+    stroke-opacity="0.9"
+  />
+
+  <!-- Highlight glint -->
+  <circle cx="21.5" cy="17" r="1.2" fill="#ffffff" fill-opacity="0.95" />
+</svg>

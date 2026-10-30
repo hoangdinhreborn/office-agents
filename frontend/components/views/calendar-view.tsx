@@ -13,7 +13,6 @@ import {
   Sparkles,
   Download,
   FileCheck,
-  Clock,
   MapPin,
 } from "lucide-react";
 import { CalendarEvent, UpcomingEventsResponse } from "@/types";
@@ -74,9 +73,9 @@ export function CalendarView({
   const imminentEvent = upcomingData?.items?.find((i) => i.is_imminent) || upcomingData?.items?.[0];
 
   return (
-    <div className="flex-1 min-h-0 overflow-y-auto p-4 md:p-6 space-y-6 bg-slate-50/50 dark:bg-slate-950/50">
+    <div className="flex-1 min-h-0 overflow-y-auto p-4 md:p-6 space-y-6">
       {/* Header */}
-      <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-200/80 dark:border-slate-800 pb-4">
+      <div className="flex flex-wrap items-center justify-between gap-4 border-b border-white/60 dark:border-white/10 pb-4">
         <div>
           <h2 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
             <CalendarDays className="h-5 w-5 text-emerald-500" />
@@ -89,7 +88,7 @@ export function CalendarView({
 
         <Button
           onClick={onOpenCreateModal}
-          className="bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl gap-2 shadow-sm"
+          className="bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white rounded-xl gap-2 shadow-md shadow-emerald-500/25 border border-white/20 active:scale-[0.97]"
         >
           <Plus className="h-4 w-4" />
           <span>Tạo Sự Kiện Mới</span>
@@ -97,9 +96,9 @@ export function CalendarView({
       </div>
 
       {/* Upcoming Alert Banner */}
-      <div className="rounded-2xl border border-emerald-300 dark:border-emerald-800 bg-gradient-to-r from-emerald-50 via-teal-50 to-white dark:from-emerald-950/60 dark:via-slate-900 dark:to-slate-900 p-4 shadow-xs flex flex-wrap items-center justify-between gap-4">
+      <div className="rounded-2xl border border-emerald-400/40 dark:border-emerald-800 bg-gradient-to-r from-emerald-500/15 via-teal-500/10 to-white/60 dark:from-emerald-950/60 dark:via-slate-900/60 dark:to-slate-900/60 backdrop-blur-xl p-4 shadow-glass-sm flex flex-wrap items-center justify-between gap-4">
         <div className="flex items-center space-x-3.5">
-          <div className="w-10 h-10 rounded-xl bg-emerald-100 dark:bg-emerald-900/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center border border-emerald-200 dark:border-emerald-700">
+          <div className="w-10 h-10 rounded-xl bg-emerald-500/15 dark:bg-emerald-900/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center border border-emerald-400/30 dark:border-emerald-700 shadow-xs backdrop-blur-md">
             <Bell className="h-5 w-5" />
           </div>
           <div>
@@ -116,13 +115,13 @@ export function CalendarView({
           </div>
         </div>
 
-        <span className="font-mono text-xs bg-white dark:bg-slate-950 text-emerald-700 dark:text-emerald-300 px-3 py-1.5 rounded-xl border border-emerald-200 dark:border-emerald-800 font-semibold shadow-xs">
+        <span className="font-mono text-xs bg-white/80 dark:bg-slate-950/80 backdrop-blur-md text-emerald-700 dark:text-emerald-300 px-3 py-1.5 rounded-xl border border-emerald-400/40 dark:border-emerald-800 font-semibold shadow-glass-sm">
           {imminentEvent ? `Còn ${imminentEvent.minutes_until} phút` : "Hệ thống sẵn sàng"}
         </span>
       </div>
 
       {/* Quick NLP Scheduling Box */}
-      <Card className="rounded-2xl border-slate-200/80 dark:border-slate-800 shadow-xs">
+      <Card className="rounded-2xl shadow-glass-sm">
         <CardHeader className="pb-2.5">
           <CardTitle className="text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center gap-2">
             <Sparkles className="h-4 w-4 text-emerald-500" />
@@ -147,7 +146,7 @@ export function CalendarView({
             <Button
               onClick={handleQuickSchedule}
               disabled={scheduling || !promptText.trim()}
-              className="bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl gap-1.5 px-4 h-9 text-xs"
+              className="bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white rounded-xl gap-1.5 px-4 h-9 text-xs shadow-md shadow-emerald-500/20 border border-white/20 active:scale-[0.97]"
             >
               <span>{scheduling ? "Đang lên lịch..." : "Lên Lịch Ngay"}</span>
             </Button>
@@ -156,8 +155,8 @@ export function CalendarView({
       </Card>
 
       {/* Calendar Events Table */}
-      <Card className="rounded-2xl border-slate-200/80 dark:border-slate-800 shadow-xs">
-        <CardHeader className="flex flex-row items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+      <Card className="rounded-2xl shadow-glass-sm overflow-hidden">
+        <CardHeader className="flex flex-row items-center justify-between pb-3 border-b border-white/60 dark:border-white/10">
           <CardTitle className="text-xs font-bold uppercase tracking-wider text-slate-500">
             Danh Sách Sự Kiện Đã Đặt
           </CardTitle>
@@ -166,7 +165,7 @@ export function CalendarView({
             size="sm"
             onClick={loadEvents}
             disabled={loading}
-            className="h-7 text-xs gap-1 text-slate-500"
+            className="h-7 text-xs gap-1 text-slate-500 hover:bg-white/60 dark:hover:bg-slate-800/60 rounded-lg"
           >
             <RefreshCw className={`h-3 w-3 ${loading ? "animate-spin" : ""}`} />
             <span>Làm mới</span>
@@ -176,7 +175,7 @@ export function CalendarView({
         <CardContent className="p-0">
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs">
-              <thead className="bg-slate-50/70 dark:bg-slate-900/70 text-slate-500 uppercase text-[10px] tracking-wider border-b border-slate-100 dark:border-slate-800">
+              <thead className="bg-white/40 dark:bg-slate-900/40 backdrop-blur-md text-slate-500 uppercase text-[10px] tracking-wider border-b border-white/60 dark:border-white/10">
                 <tr>
                   <th className="p-3.5 pl-5">Tiêu Đề</th>
                   <th className="p-3.5">Bắt Đầu</th>
@@ -187,7 +186,7 @@ export function CalendarView({
                   <th className="p-3.5 pr-5 text-right">Tệp .ICS</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-slate-700 dark:text-slate-200">
+              <tbody className="divide-y divide-white/40 dark:divide-white/5 text-slate-700 dark:text-slate-200">
                 {events.length === 0 ? (
                   <tr>
                     <td colSpan={7} className="p-8 text-center text-slate-400">
@@ -196,7 +195,7 @@ export function CalendarView({
                   </tr>
                 ) : (
                   events.map((ev) => (
-                    <tr key={ev.id} className="hover:bg-slate-50/60 dark:hover:bg-slate-800/40 transition">
+                    <tr key={ev.id} className="hover:bg-white/60 dark:hover:bg-slate-800/40 transition-colors">
                       <td className="p-3.5 pl-5 font-semibold text-slate-900 dark:text-white">
                         {ev.title}
                       </td>
@@ -232,7 +231,7 @@ export function CalendarView({
                       <td className="p-3.5 pr-5 text-right">
                         <a
                           href={`/api/calendar/download-ics/${ev.id}`}
-                          className="inline-flex items-center gap-1 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 px-2.5 py-1 rounded-lg text-[11px] font-medium transition"
+                          className="inline-flex items-center gap-1 bg-white/70 hover:bg-white/90 dark:bg-slate-800/70 dark:hover:bg-slate-700/80 border border-white/70 dark:border-white/10 text-slate-700 dark:text-slate-200 px-2.5 py-1 rounded-xl text-[11px] font-medium backdrop-blur-sm shadow-glass-sm transition-all"
                         >
                           <Download className="h-3 w-3" />
                           <span>.ICS</span>

@@ -4,7 +4,7 @@ import { Toaster } from "@/components/ui/sonner";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Local AI Assistant - Multi-Agent Framework",
+  title: "Deskhive - Local AI Assistant",
   description:
     "Next.js Modern Dashboard powered by DeepSeek-R1 / Gemma local reasoning, Gmail API v1, Google Calendar, and PyMuPDF",
 };

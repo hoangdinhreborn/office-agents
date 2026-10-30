@@ -4,20 +4,31 @@ import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "@/lib/utils";
 
 const buttonVariants = cva(
-  "inline-flex items-center justify-center whitespace-nowrap rounded-xl text-xs font-semibold ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 active:scale-[0.98]",
+  "inline-flex items-center justify-center whitespace-nowrap rounded-xl text-xs font-semibold ring-offset-background transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 active:scale-[0.97]",
   {
     variants: {
       variant: {
-        default: "bg-indigo-600 text-white shadow hover:bg-indigo-500",
-        destructive: "bg-rose-500 text-white shadow-sm hover:bg-rose-600",
-        outline: "border border-slate-200 bg-white text-slate-700 hover:bg-slate-100 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800",
-        secondary: "bg-slate-100 text-slate-900 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700",
-        ghost: "hover:bg-slate-100 hover:text-slate-900 dark:hover:bg-slate-800 dark:hover:text-slate-100",
-        link: "text-indigo-600 underline-offset-4 hover:underline",
-        emerald: "bg-emerald-600 text-white shadow hover:bg-emerald-500",
-        amber: "bg-amber-500 text-white shadow hover:bg-amber-600",
-        purple: "bg-purple-600 text-white shadow hover:bg-purple-500",
-        rose: "bg-rose-500 text-white shadow hover:bg-rose-600",
+        default:
+          "bg-gradient-to-r from-indigo-600 via-indigo-500 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white shadow-md shadow-indigo-500/25 border border-white/20",
+        destructive:
+          "bg-gradient-to-r from-rose-600 to-pink-600 hover:from-rose-500 hover:to-pink-500 text-white shadow-md shadow-rose-500/25 border border-white/20",
+        outline:
+          "border border-white/70 dark:border-white/15 bg-white/60 dark:bg-slate-900/60 backdrop-blur-md text-slate-800 dark:text-slate-100 hover:bg-white/90 dark:hover:bg-slate-800/80 shadow-glass-sm hover:shadow-glass hover:border-white/90",
+        secondary:
+          "bg-white/60 hover:bg-white/80 dark:bg-slate-800/60 dark:hover:bg-slate-700/80 backdrop-blur-md text-slate-800 dark:text-slate-100 border border-white/60 dark:border-white/10 shadow-glass-sm",
+        ghost:
+          "hover:bg-white/60 dark:hover:bg-slate-800/60 backdrop-blur-sm text-slate-700 dark:text-slate-200 hover:text-slate-900 dark:hover:text-white",
+        link: "text-indigo-600 dark:text-indigo-400 underline-offset-4 hover:underline",
+        emerald:
+          "bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white shadow-md shadow-emerald-500/25 border border-white/20",
+        amber:
+          "bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-white shadow-md shadow-amber-500/25 border border-white/20",
+        purple:
+          "bg-gradient-to-r from-purple-600 to-fuchsia-600 hover:from-purple-500 hover:to-fuchsia-500 text-white shadow-md shadow-purple-500/25 border border-white/20",
+        rose:
+          "bg-gradient-to-r from-rose-600 to-pink-600 hover:from-rose-500 hover:to-pink-500 text-white shadow-md shadow-rose-500/25 border border-white/20",
+        glass:
+          "backdrop-blur-md bg-white/70 dark:bg-slate-800/70 border border-white/70 dark:border-white/15 text-slate-800 dark:text-slate-100 hover:bg-white/90 dark:hover:bg-slate-800 shadow-glass-sm hover:shadow-glass",
       },
       size: {
         default: "h-9 px-4 py-2",
