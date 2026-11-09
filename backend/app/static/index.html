@@ -462,6 +462,12 @@
             <p class="text-xs text-slate-400">Đọc email theo nhãn Gmail, lọc whitelist người gửi, soạn & gửi thư bảo mật.</p>
           </div>
           <div class="flex items-center space-x-2">
+            <button onclick="openFolderRulesModal()" class="bg-sky-600/20 hover:bg-sky-600/40 text-sky-300 text-xs px-3 py-2 rounded-xl border border-sky-500/30 flex items-center gap-1.5 transition">
+              <i class="fa-solid fa-folder-tree"></i> Luật Folder
+            </button>
+            <button onclick="openDailyDigestModal()" class="bg-purple-600/20 hover:bg-purple-600/40 text-purple-300 text-xs px-3 py-2 rounded-xl border border-purple-500/30 flex items-center gap-1.5 transition">
+              <i class="fa-solid fa-file-pdf"></i> Báo Cáo Ngày (PDF)
+            </button>
             <button onclick="triggerEmailPollNow()" class="bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs px-3 py-2 rounded-xl border border-slate-700 flex items-center gap-1.5 transition">
               <i class="fa-solid fa-rotate"></i> Quét Ngầm Outbound
             </button>
@@ -515,13 +521,34 @@
               <p>Chọn một email bên trái để xem nội dung chi tiết & hành động AI.</p>
             </div>
             <div id="email-detail-container" class="hidden space-y-4">
-              <div class="border-b border-slate-800 pb-3 flex justify-between items-start">
-                <div>
-                  <h3 id="email-detail-subject" class="font-bold text-sm text-white">...</h3>
-                  <p class="text-xs text-slate-400 mt-1">Từ: <span id="email-detail-sender" class="text-sky-300 font-medium">...</span></p>
-                  <p id="email-detail-time" class="text-[11px] text-slate-500 font-mono mt-0.5">...</p>
+              <div class="border-b border-slate-800 pb-3 flex justify-between items-start gap-3">
+                <div class="space-y-1">
+                  <h3 id="email-detail-subject" class="font-bold text-sm text-white leading-tight">...</h3>
+                  <p class="text-xs text-slate-400">Từ: <span id="email-detail-sender" class="text-sky-300 font-medium">...</span></p>
+                  <p id="email-detail-time" class="text-[11px] text-slate-500 font-mono">...</p>
                 </div>
-                <span id="email-detail-urgency" class="text-xs px-2.5 py-0.5 rounded-full bg-slate-800 text-slate-300">Bình thường</span>
+                <div class="flex flex-col items-end gap-1.5 shrink-0">
+                  <div class="flex items-center gap-1.5">
+                    <span id="email-detail-folder" class="text-[10px] px-2 py-0.5 rounded-full bg-sky-950 text-sky-300 border border-sky-800">INBOX</span>
+                    <span id="email-detail-category" class="text-[10px] px-2 py-0.5 rounded-full bg-purple-950 text-purple-300 border border-purple-800">Khác</span>
+                  </div>
+                  <span id="email-detail-urgency" class="text-xs px-2.5 py-0.5 rounded-full bg-slate-800 text-slate-300">Bình thường</span>
+                </div>
+              </div>
+
+              <!-- Attached PDF Summary Card if present -->
+              <div id="email-detail-pdf-card" class="hidden bg-sky-950/40 border border-sky-800/60 rounded-xl p-3.5 space-y-2">
+                <div class="flex items-center justify-between">
+                  <div class="flex items-center gap-2 text-sky-300 font-semibold text-xs">
+                    <i class="fa-solid fa-file-pdf text-red-400 text-sm"></i>
+                    <span>Tệp PDF đính kèm:</span>
+                    <span id="email-detail-pdf-filename" class="font-mono text-white underline">...</span>
+                  </div>
+                  <span class="text-[10px] px-2 py-0.5 rounded bg-sky-900/60 text-sky-200 border border-sky-700/50">Đã tóm tắt bởi AI</span>
+                </div>
+                <div id="email-detail-pdf-summary" class="text-xs text-sky-100 bg-slate-950/70 p-3 rounded-lg border border-sky-900/40 whitespace-pre-wrap leading-relaxed max-h-48 overflow-y-auto">
+                  ...
+                </div>
               </div>
 
               <!-- Quick Action Bar -->
@@ -948,6 +975,141 @@
       <div class="flex justify-end space-x-2 pt-2">
         <button onclick="closeAddTaskModal()" class="px-3.5 py-2 rounded-xl bg-slate-800 text-slate-300">Hủy</button>
         <button onclick="submitNewTask()" class="bg-amber-600 hover:bg-amber-500 text-white px-4 py-2 rounded-xl font-semibold">Tạo Việc</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 5. Folder Rules Management Modal -->
+  <div id="folder-rules-modal" class="hidden fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+    <div class="bg-slate-900 border border-slate-700 w-full max-w-2xl rounded-2xl shadow-2xl p-6 space-y-4 text-xs max-h-[85vh] flex flex-col">
+      <div class="flex justify-between items-center border-b border-slate-800 pb-3">
+        <div>
+          <h3 class="font-bold text-sm text-white flex items-center gap-2">
+            <i class="fa-solid fa-folder-tree text-sky-400"></i> Quản Lý Thư Mục & Luật Phân Loại Email
+          </h3>
+          <p class="text-[11px] text-slate-400 mt-0.5">Tác tử AI tự động đưa email vào thư mục tương ứng theo từ khóa hoặc vai trò/địa chỉ người gửi.</p>
+        </div>
+        <button onclick="closeFolderRulesModal()" class="text-slate-400 hover:text-white">
+          <i class="fa-solid fa-xmark text-sm"></i>
+        </button>
+      </div>
+
+      <!-- Add New Rule Form -->
+      <div class="bg-slate-950 p-3.5 rounded-xl border border-slate-800 space-y-3">
+        <h4 class="font-semibold text-sky-300 text-[11px] uppercase tracking-wider">Thêm hoặc Cập Nhật Luật Phân Loại</h4>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label class="block text-slate-400 mb-1">Tên Thư Mục / Nhãn:</label>
+            <input type="text" id="rule-folder-name" placeholder="VD: Nộp bài tập, Học vụ, Khẩn cấp..." class="w-full bg-slate-900 border border-slate-800 rounded-lg p-2 text-white focus:outline-none focus:border-sky-500">
+          </div>
+          <div>
+            <label class="block text-slate-400 mb-1">Mã Màu:</label>
+            <select id="rule-folder-color" class="w-full bg-slate-900 border border-slate-800 rounded-lg p-2 text-white">
+              <option value="#3B82F6">Xanh Dương (Blue)</option>
+              <option value="#10B981">Xanh Lá (Green)</option>
+              <option value="#EF4444">Đỏ (Red / Urgent)</option>
+              <option value="#F59E0B">Vàng Cam (Amber)</option>
+              <option value="#8B5CF6">Tím (Purple)</option>
+            </select>
+          </div>
+        </div>
+        <div>
+          <label class="block text-slate-400 mb-1">Từ Khóa (cách nhau bởi dấu phẩy):</label>
+          <input type="text" id="rule-keywords" placeholder="VD: bài tập, nộp bài, assignment, đồ án, lab, báo cáo" class="w-full bg-slate-900 border border-slate-800 rounded-lg p-2 text-white focus:outline-none focus:border-sky-500">
+        </div>
+        <div>
+          <label class="block text-slate-400 mb-1">Người Gửi / Vai Trò (cách nhau bởi dấu phẩy, hỗ trợ wildcard *@domain):</label>
+          <input type="text" id="rule-senders" placeholder="VD: *@student.edu.vn, daotao@truong.edu.vn, boss@company.com" class="w-full bg-slate-900 border border-slate-800 rounded-lg p-2 text-white focus:outline-none focus:border-sky-500">
+        </div>
+        <div class="flex items-center justify-between pt-1">
+          <label class="flex items-center gap-2 cursor-pointer text-slate-300">
+            <input type="checkbox" id="rule-auto-gmail" checked class="rounded bg-slate-900 border-slate-700 text-sky-500">
+            <span>Tự động tạo & gắn nhãn tương ứng trên Gmail API</span>
+          </label>
+          <button onclick="submitFolderRule()" class="bg-sky-600 hover:bg-sky-500 text-white px-3.5 py-1.5 rounded-lg font-semibold shadow transition">
+            Lưu Luật Phân Loại
+          </button>
+        </div>
+      </div>
+
+      <!-- Rules List -->
+      <div class="flex-1 overflow-y-auto space-y-2">
+        <h4 class="font-semibold text-slate-400 text-[11px] uppercase tracking-wider">Danh Sách Luật Đang Áp Dụng:</h4>
+        <div id="folder-rules-list-container" class="space-y-2">
+          <div class="p-4 text-center text-slate-500">Đang tải danh sách luật...</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 6. Daily Digest & PDF Export Modal -->
+  <div id="daily-digest-modal" class="hidden fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+    <div class="bg-slate-900 border border-slate-700 w-full max-w-2xl rounded-2xl shadow-2xl p-6 space-y-4 text-xs max-h-[85vh] flex flex-col">
+      <div class="flex justify-between items-center border-b border-slate-800 pb-3">
+        <div>
+          <h3 class="font-bold text-sm text-white flex items-center gap-2">
+            <i class="fa-solid fa-file-pdf text-purple-400"></i> Báo Cáo Tổng Hợp Email Trong Ngày (Daily Digest)
+          </h3>
+          <p class="text-[11px] text-slate-400 mt-0.5">Tác tử AI tổng hợp, phân nhóm email (nộp bài, học vụ, thắc mắc...) và xuất file PDF điều hành chuyên nghiệp.</p>
+        </div>
+        <button onclick="closeDailyDigestModal()" class="text-slate-400 hover:text-white">
+          <i class="fa-solid fa-xmark text-sm"></i>
+        </button>
+      </div>
+
+      <!-- Date selector & Action bar -->
+      <div class="bg-slate-950 p-3 rounded-xl border border-slate-800 flex flex-wrap items-center justify-between gap-3">
+        <div class="flex items-center gap-2">
+          <span class="text-slate-400">Chọn ngày tổng hợp:</span>
+          <input type="date" id="digest-target-date" class="bg-slate-900 border border-slate-800 text-white rounded-lg px-2.5 py-1.5 focus:outline-none focus:border-purple-500">
+        </div>
+        <div class="flex items-center space-x-2">
+          <button onclick="loadDailyDigestData()" id="btn-fetch-digest" class="bg-slate-800 hover:bg-slate-700 text-slate-200 px-3 py-1.5 rounded-lg font-medium transition flex items-center gap-1.5">
+            <i class="fa-solid fa-eye"></i> Xem Báo Cáo
+          </button>
+          <button onclick="exportDailyDigestPDF()" id="btn-export-digest-pdf" class="bg-purple-600 hover:bg-purple-500 text-white px-3.5 py-1.5 rounded-lg font-semibold transition flex items-center gap-1.5 shadow">
+            <i class="fa-solid fa-file-arrow-down"></i> Xuất File PDF
+          </button>
+        </div>
+      </div>
+
+      <!-- Digest Preview Content -->
+      <div id="digest-preview-content" class="flex-1 overflow-y-auto space-y-4 pr-1">
+        <div class="p-8 text-center text-slate-500">Bấm "Xem Báo Cáo" hoặc "Xuất File PDF" để tạo tổng hợp.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 7. Send Email Modal -->
+  <div id="send-email-modal" class="hidden fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+    <div class="bg-slate-900 border border-slate-700 w-full max-w-lg rounded-2xl shadow-2xl p-6 space-y-4 text-xs">
+      <div class="flex justify-between items-center border-b border-slate-800 pb-3">
+        <h3 class="font-bold text-sm text-white flex items-center gap-2">
+          <i class="fa-solid fa-paper-plane text-rose-400"></i> Soạn & Gửi Email Qua Gmail API
+        </h3>
+        <button onclick="closeSendEmailModal()" class="text-slate-400 hover:text-white">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+      <div class="space-y-3">
+        <div>
+          <label class="block text-slate-400 mb-1">Người nhận (To):</label>
+          <input type="text" id="modal-email-to" placeholder="recipient@example.com" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-white focus:outline-none focus:border-rose-500">
+        </div>
+        <div>
+          <label class="block text-slate-400 mb-1">Tiêu đề (Subject):</label>
+          <input type="text" id="modal-email-subject" placeholder="Tiêu đề email..." class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-white focus:outline-none focus:border-rose-500">
+        </div>
+        <div>
+          <label class="block text-slate-400 mb-1">Nội dung (Body):</label>
+          <textarea id="modal-email-body" rows="6" placeholder="Nhập nội dung email..." class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-white focus:outline-none focus:border-rose-500 font-sans leading-relaxed"></textarea>
+        </div>
+      </div>
+      <div class="flex justify-end space-x-2 pt-2">
+        <button onclick="closeSendEmailModal()" class="px-3.5 py-2 rounded-xl bg-slate-800 text-slate-300">Hủy</button>
+        <button onclick="submitSendEmail()" id="btn-submit-send-email" class="bg-rose-600 hover:bg-rose-500 text-white px-4 py-2 rounded-xl font-semibold flex items-center gap-1.5">
+          <i class="fa-solid fa-paper-plane"></i> Gửi Ngay
+        </button>
       </div>
     </div>
   </div>
@@ -1806,21 +1968,43 @@
       }
     }
 
+    function getUrgencyBadgeClass(urgency) {
+      if (urgency === 'Khẩn cấp') return 'bg-rose-500/20 text-rose-300 border border-rose-500/40 font-bold';
+      if (urgency === 'Cao') return 'bg-amber-500/20 text-amber-300 border border-amber-500/40 font-semibold';
+      if (urgency === 'Thấp') return 'bg-slate-800 text-slate-400 border border-slate-700/60';
+      return 'bg-sky-500/20 text-sky-300 border border-sky-500/30';
+    }
+
     function renderInboxList() {
       const list = document.getElementById('inbox-email-list');
       if (!scannedEmails.length) {
         list.innerHTML = `<div class="p-6 text-center text-slate-500 text-xs">Không có email nào phù hợp.</div>`;
         return;
       }
-      list.innerHTML = scannedEmails.map((em, idx) => `
-        <div onclick="selectEmailDetail(${idx})" class="p-3 rounded-xl bg-slate-950 hover:bg-slate-800/80 border border-slate-800/80 cursor-pointer transition space-y-1">
-          <div class="flex justify-between items-start">
-            <span class="font-bold text-white text-xs truncate max-w-[200px]">${escapeHtml(em.subject)}</span>
-            <span class="text-[10px] px-2 py-0.2 rounded-full ${em.urgency === 'Khẩn cấp' ? 'bg-rose-500/20 text-rose-300' : 'bg-slate-800 text-slate-400'}">${em.urgency}</span>
+      list.innerHTML = scannedEmails.map((em, idx) => {
+        const urgClass = getUrgencyBadgeClass(em.urgency);
+        const hasPdf = em.pdf_filename || em.has_attachments;
+        const pdfBadge = hasPdf ? `<span class="text-[10px] px-1.5 py-0.2 rounded bg-sky-950 text-sky-300 border border-sky-800"><i class="fa-solid fa-file-pdf text-red-400 mr-0.5"></i> PDF</span>` : '';
+        const catBadge = em.category && em.category !== 'Khác' ? `<span class="text-[10px] px-1.5 py-0.2 rounded bg-purple-950 text-purple-300 border border-purple-800">${escapeHtml(em.category)}</span>` : '';
+        const folderBadge = em.folder && em.folder !== 'INBOX' ? `<span class="text-[10px] px-1.5 py-0.2 rounded bg-blue-950 text-blue-300 border border-blue-800">${escapeHtml(em.folder)}</span>` : '';
+
+        return `
+          <div onclick="selectEmailDetail(${idx})" class="p-3 rounded-xl bg-slate-950 hover:bg-slate-800/80 border border-slate-800/80 cursor-pointer transition space-y-1.5">
+            <div class="flex justify-between items-start gap-2">
+              <span class="font-bold text-white text-xs truncate max-w-[210px]">${escapeHtml(em.subject)}</span>
+              <span class="text-[10px] px-2 py-0.5 rounded-full shrink-0 ${urgClass}">${em.urgency || 'Trung bình'}</span>
+            </div>
+            <div class="flex items-center justify-between text-[11px] text-slate-400">
+              <span class="truncate max-w-[180px]">${escapeHtml(em.sender)}</span>
+              <div class="flex items-center gap-1">
+                ${folderBadge}
+                ${catBadge}
+                ${pdfBadge}
+              </div>
+            </div>
           </div>
-          <p class="text-[11px] text-slate-400 truncate">${escapeHtml(em.sender)}</p>
-        </div>
-      `).join('');
+        `;
+      }).join('');
     }
 
     function selectEmailDetail(idx) {
@@ -1831,8 +2015,321 @@
       document.getElementById('email-detail-subject').innerText = em.subject;
       document.getElementById('email-detail-sender').innerText = em.sender;
       document.getElementById('email-detail-time').innerText = em.received_time;
-      document.getElementById('email-detail-urgency').innerText = em.urgency;
-      document.getElementById('email-detail-body').innerText = em.summary;
+
+      const urgEl = document.getElementById('email-detail-urgency');
+      urgEl.innerText = em.urgency || 'Trung bình';
+      urgEl.className = `text-xs px-2.5 py-0.5 rounded-full ${getUrgencyBadgeClass(em.urgency)}`;
+
+      const folderEl = document.getElementById('email-detail-folder');
+      if (folderEl) folderEl.innerText = em.folder || 'INBOX';
+
+      const catEl = document.getElementById('email-detail-category');
+      if (catEl) catEl.innerText = em.category || 'Khác';
+
+      // Check PDF attachment summary card
+      const pdfCard = document.getElementById('email-detail-pdf-card');
+      if (em.pdf_filename || em.pdf_summary) {
+        pdfCard.classList.remove('hidden');
+        document.getElementById('email-detail-pdf-filename').innerText = em.pdf_filename || 'tài liệu đính kèm.pdf';
+        document.getElementById('email-detail-pdf-summary').innerText = em.pdf_summary || 'Đã đọc tệp PDF nhưng chưa có tóm tắt.';
+      } else {
+        pdfCard.classList.add('hidden');
+      }
+
+      document.getElementById('email-detail-body').innerText = em.summary || em.full_analysis || em.body;
+    }
+
+    async function openFolderRulesModal() {
+      document.getElementById('folder-rules-modal').classList.remove('hidden');
+      await loadFolderRulesList();
+    }
+
+    function closeFolderRulesModal() {
+      document.getElementById('folder-rules-modal').classList.add('hidden');
+    }
+
+    async function loadFolderRulesList() {
+      const container = document.getElementById('folder-rules-list-container');
+      try {
+        const res = await fetch('/api/emails/rules');
+        if (res.ok) {
+          const rules = await res.json();
+          if (!rules.length) {
+            container.innerHTML = '<div class="p-4 text-center text-slate-500">Chưa có luật phân loại nào. Hãy tạo luật đầu tiên bên trên.</div>';
+            return;
+          }
+          container.innerHTML = rules.map(r => `
+            <div class="bg-slate-900 border border-slate-800 p-3 rounded-xl flex items-center justify-between gap-3">
+              <div class="space-y-1">
+                <div class="flex items-center gap-2">
+                  <span class="font-bold text-white text-xs px-2 py-0.5 rounded" style="background-color: ${r.color}20; color: ${r.color}; border: 1px solid ${r.color}40">${escapeHtml(r.folder_name)}</span>
+                  ${r.auto_apply_gmail_label ? '<span class="text-[10px] text-emerald-400"><i class="fa-solid fa-cloud-arrow-up"></i> Sync Gmail</span>' : ''}
+                </div>
+                <div class="text-[11px] text-slate-400 space-y-0.5">
+                  ${r.keywords && r.keywords.length ? `<div><span class="text-slate-500">Từ khóa:</span> ${escapeHtml(r.keywords.join(', '))}</div>` : ''}
+                  ${r.senders && r.senders.length ? `<div><span class="text-slate-500">Người gửi:</span> ${escapeHtml(r.senders.join(', '))}</div>` : ''}
+                </div>
+              </div>
+              <button onclick="deleteFolderRule('${r.id}')" class="text-rose-400 hover:text-rose-300 p-1.5 rounded-lg hover:bg-rose-500/10 transition" title="Xóa luật">
+                <i class="fa-solid fa-trash-can"></i>
+              </button>
+            </div>
+          `).join('');
+        }
+      } catch (e) {
+        container.innerHTML = `<div class="p-4 text-center text-rose-400">Lỗi tải luật: ${e.message}</div>`;
+      }
+    }
+
+    async function submitFolderRule() {
+      const folderName = document.getElementById('rule-folder-name').value.trim();
+      const color = document.getElementById('rule-folder-color').value;
+      const kwRaw = document.getElementById('rule-keywords').value.trim();
+      const sendersRaw = document.getElementById('rule-senders').value.trim();
+      const autoGmail = document.getElementById('rule-auto-gmail').checked;
+
+      if (!folderName) {
+        showToast('Vui lòng nhập tên thư mục!', 'warning');
+        return;
+      }
+
+      const keywords = kwRaw ? kwRaw.split(',').map(s => s.trim()).filter(Boolean) : [];
+      const senders = sendersRaw ? sendersRaw.split(',').map(s => s.trim()).filter(Boolean) : [];
+
+      try {
+        const res = await fetch('/api/emails/rules', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            folder_name: folderName,
+            color: color,
+            keywords: keywords,
+            senders: senders,
+            auto_apply_gmail_label: autoGmail
+          })
+        });
+        if (res.ok) {
+          showToast(`Đã lưu luật phân loại cho thư mục "${folderName}"!`, 'success');
+          document.getElementById('rule-folder-name').value = '';
+          document.getElementById('rule-keywords').value = '';
+          document.getElementById('rule-senders').value = '';
+          await loadFolderRulesList();
+          await refreshEmailFoldersList();
+        } else {
+          const err = await res.json();
+          showToast('Lỗi lưu luật: ' + (err.detail || 'Không rõ'), 'error');
+        }
+      } catch (e) {
+        showToast('Lỗi: ' + e.message, 'error');
+      }
+    }
+
+    async function deleteFolderRule(ruleId) {
+      if (!confirm('Bạn có chắc muốn xóa luật phân loại này không?')) return;
+      try {
+        const res = await fetch(`/api/emails/rules/${ruleId}`, { method: 'DELETE' });
+        if (res.ok) {
+          showToast('Đã xóa luật phân loại thành công!', 'success');
+          await loadFolderRulesList();
+          await refreshEmailFoldersList();
+        }
+      } catch (e) {
+        showToast('Lỗi xóa: ' + e.message, 'error');
+      }
+    }
+
+    async function refreshEmailFoldersList() {
+      try {
+        const res = await fetch('/api/emails/folders');
+        if (res.ok) {
+          const data = await res.json();
+          const select = document.getElementById('inbox-label-select');
+          if (select && data.folders) {
+            const currentVal = select.value;
+            select.innerHTML = data.folders.map(f => `<option value="${escapeHtml(f)}" ${f === currentVal ? 'selected' : ''}>${escapeHtml(f)}</option>`).join('');
+          }
+        }
+      } catch (e) {}
+    }
+
+    function openDailyDigestModal() {
+      const today = new Date().toISOString().slice(0, 10);
+      document.getElementById('digest-target-date').value = today;
+      document.getElementById('daily-digest-modal').classList.remove('hidden');
+    }
+
+    function closeDailyDigestModal() {
+      document.getElementById('daily-digest-modal').classList.add('hidden');
+    }
+
+    async function loadDailyDigestData() {
+      const dateVal = document.getElementById('digest-target-date').value;
+      const btn = document.getElementById('btn-fetch-digest');
+      const container = document.getElementById('digest-preview-content');
+
+      btn.disabled = true;
+      btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-1"></i> Đang tải...';
+
+      try {
+        const res = await fetch('/api/emails/daily-digest', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ date: dateVal })
+        });
+        if (res.ok) {
+          const digest = await res.json();
+          renderDigestPreview(digest);
+        } else {
+          container.innerHTML = '<div class="p-6 text-center text-rose-400">Không thể tải báo cáo tổng hợp.</div>';
+        }
+      } catch (e) {
+        container.innerHTML = `<div class="p-6 text-center text-rose-400">Lỗi: ${e.message}</div>`;
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fa-solid fa-eye mr-1"></i> Xem Báo Cáo';
+      }
+    }
+
+    function renderDigestPreview(d) {
+      const container = document.getElementById('digest-preview-content');
+      const cats = d.categories || {};
+      const catBadges = Object.keys(cats).map(c => `
+        <div class="bg-slate-900 border border-slate-800 p-2.5 rounded-xl text-center">
+          <div class="text-[11px] text-slate-400">${escapeHtml(c)}</div>
+          <div class="text-base font-bold text-white mt-0.5">${cats[c].length}</div>
+        </div>
+      `).join('');
+
+      const actions = (d.action_items || []).map(a => `
+        <li class="flex items-start gap-2 text-slate-300">
+          <i class="fa-regular fa-square-check text-emerald-400 mt-0.5"></i>
+          <span>${escapeHtml(a)}</span>
+        </li>
+      `).join('');
+
+      container.innerHTML = `
+        <!-- Stats Grid -->
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+          <div class="bg-purple-950/40 border border-purple-800/60 p-2.5 rounded-xl text-center">
+            <div class="text-[11px] text-purple-300">Tổng Email</div>
+            <div class="text-base font-bold text-white mt-0.5">${d.total_emails}</div>
+          </div>
+          <div class="bg-rose-950/40 border border-rose-800/60 p-2.5 rounded-xl text-center">
+            <div class="text-[11px] text-rose-300">Khẩn Cấp</div>
+            <div class="text-base font-bold text-rose-400 mt-0.5">${d.urgent_count}</div>
+          </div>
+          <div class="bg-sky-950/40 border border-sky-800/60 p-2.5 rounded-xl text-center">
+            <div class="text-[11px] text-sky-300">File PDF Đính Kèm</div>
+            <div class="text-base font-bold text-sky-400 mt-0.5">${d.pdf_count}</div>
+          </div>
+          <div class="bg-slate-900 border border-slate-800 p-2.5 rounded-xl text-center">
+            <div class="text-[11px] text-slate-400">Ngày Báo Cáo</div>
+            <div class="text-xs font-mono text-white mt-1">${escapeHtml(d.target_date)}</div>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-3 sm:grid-cols-6 gap-2">
+          ${catBadges}
+        </div>
+
+        <!-- Executive Summary -->
+        <div class="bg-slate-950 border border-slate-800 p-3.5 rounded-xl space-y-1.5">
+          <h4 class="font-semibold text-purple-300 text-xs flex items-center gap-1.5">
+            <i class="fa-solid fa-sparkles"></i> Tóm Tắt Tình Hình Trong Ngày
+          </h4>
+          <p class="text-slate-300 whitespace-pre-wrap leading-relaxed text-xs">${escapeHtml(d.executive_summary)}</p>
+        </div>
+
+        <!-- Action Items -->
+        <div class="bg-emerald-950/30 border border-emerald-800/50 p-3.5 rounded-xl space-y-2">
+          <h4 class="font-semibold text-emerald-300 text-xs flex items-center gap-1.5">
+            <i class="fa-solid fa-list-check"></i> Danh Sách Đầu Việc Cần Xử Lý (Action Items)
+          </h4>
+          <ul class="space-y-1.5 text-xs">
+            ${actions || '<li class="text-slate-500">Không có đầu việc nào tồn đọng.</li>'}
+          </ul>
+        </div>
+      `;
+    }
+
+    async function exportDailyDigestPDF() {
+      const dateVal = document.getElementById('digest-target-date').value;
+      const btn = document.getElementById('btn-export-digest-pdf');
+
+      btn.disabled = true;
+      btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-1"></i> Đang xuất PDF...';
+
+      try {
+        const res = await fetch('/api/emails/daily-digest/export-pdf', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ date: dateVal })
+        });
+        if (res.ok) {
+          const data = await res.json();
+          showToast(`Đã xuất báo cáo PDF thành công (${data.filename})!`, 'success');
+          window.open(data.download_url, '_blank');
+        } else {
+          showToast('Lỗi xuất báo cáo PDF.', 'error');
+        }
+      } catch (e) {
+        showToast('Lỗi: ' + e.message, 'error');
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fa-solid fa-file-arrow-down mr-1"></i> Xuất File PDF';
+      }
+    }
+
+    function openSendEmailModal() {
+      document.getElementById('send-email-modal').classList.remove('hidden');
+    }
+
+    function closeSendEmailModal() {
+      document.getElementById('send-email-modal').classList.add('hidden');
+    }
+
+    async function submitSendEmail() {
+      const toRaw = document.getElementById('modal-email-to').value.trim();
+      const subject = document.getElementById('modal-email-subject').value.trim();
+      const body = document.getElementById('modal-email-body').value.trim();
+      const btn = document.getElementById('btn-submit-send-email');
+
+      if (!toRaw || !subject || !body) {
+        showToast('Vui lòng nhập đầy đủ Người nhận, Tiêu đề và Nội dung thư!', 'warning');
+        return;
+      }
+
+      const toList = toRaw.split(',').map(s => s.trim()).filter(Boolean);
+
+      btn.disabled = true;
+      btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-1"></i> Đang gửi...';
+
+      try {
+        const res = await fetch('/api/emails/send', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            to: toList,
+            subject: subject,
+            body: body
+          })
+        });
+        if (res.ok) {
+          showToast('Đã gửi email qua Gmail API thành công!', 'success');
+          closeSendEmailModal();
+          document.getElementById('modal-email-to').value = '';
+          document.getElementById('modal-email-subject').value = '';
+          document.getElementById('modal-email-body').value = '';
+        } else {
+          const err = await res.json();
+          showToast('Lỗi gửi email: ' + (err.detail || 'Không rõ'), 'error');
+        }
+      } catch (e) {
+        showToast('Lỗi kết nối: ' + e.message, 'error');
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fa-solid fa-paper-plane mr-1"></i> Gửi Ngay';
+      }
     }
 
     function aiSummarizeCurrentEmail() {
@@ -2077,6 +2574,7 @@
       checkSystemStatus();
       fetchUpcomingNotifications();
       loadTasks();
+      refreshEmailFoldersList();
 
       // Nạp danh sách phiên chat và khôi phục lịch sử nếu có phiên lưu trữ
       await loadChatSessionsList();

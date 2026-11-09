@@ -67,15 +67,28 @@ Dành riêng cho các văn bản hành chính, báo cáo tài chính, hợp đ�
  
 ---
  
-### Tab 3: 📧 Đọc & Gửi Email Gmail
-Hệ thống cho phép quét nhãn Gmail, gửi email và chỉ lọc email từ danh sách người gửi chỉ định:
-1. **Nhãn Gmail (Label)**: Chọn hoặc nhập tên nhãn muốn quét (ví dụ: `INBOX`, `STARRED`, `IMPORTANT`).
-2. **Người gửi cho phép (Whitelist)**: Nhập danh sách địa chỉ email cần đọc, phân cách bằng dấu phẩy (ví dụ: `boss@company.com, client@partner.com`). Email từ những người khác sẽ tự động bị bỏ qua để tránh rác thông tin.
-3. Bấm **"Quét Email" / "Phân Tích AI"**:
-   - Hệ thống hiển thị huy hiệu mức độ khẩn cấp (*Khẩn cấp*, *Cao*, *Trung bình*).
-   - Nếu email chứa sự cố: Có nút **"Đề xuất Giải pháp sự cố này"** (chuyển thẳng sang Solution Agent).
-   - Nếu email có lời mời họp/thời hạn: Có nút **"Đưa vào Calendar"** (tự động tạo lịch).
-4. **Soạn & Gửi Email**: Hỗ trợ gửi email trực tiếp qua Gmail API v1 với xác thực an toàn OAuth 2.0.
+### Tab 3: 📧 Đọc & Gửi Email Gmail & Tự Động Phân Loại Thư Mục
+Hệ thống cho phép quét nhãn Gmail, tự động đưa email vào thư mục tương ứng, tóm tắt tài liệu PDF đính kèm và xuất báo cáo tổng hợp PDF trong ngày:
+1. **Quản Lý Folder & Luật Phân Loại Tự Động (Rules)**:
+   - Bấm nút **"Luật Folder"** trên thanh công cụ để mở giao diện quản lý.
+   - Bạn có thể tạo các thư mục/nhãn nghiệp vụ (ví dụ: `Nộp bài tập`, `Học vụ`, `Khẩn cấp`, `Thắc mắc`).
+   - Thiết lập điều kiện lọc tự động:
+     - **Theo vai trò / người gửi**: Hỗ trợ địa chỉ cụ thể (`daotao@truong.edu.vn`) hoặc mẫu wildcard tên miền (`*@student.edu.vn`).
+     - **Theo từ khóa**: Phân cách bằng dấu phẩy (ví dụ: `bài tập, nộp bài, assignment, đồ án, lab, báo cáo`).
+     - **Đồng bộ nhãn Gmail**: Tự động tạo nhãn trên Gmail API và gắn nhãn cho thư tương ứng.
+2. **Tự Động Bóc Tách & Tóm Tắt Tệp PDF Đính Kèm**:
+   - Khi nhận email có đính kèm file PDF (bài tập sinh viên, công văn, hợp đồng), AI tự động nạp nhị phân và tóm tắt điều hành 4 phần.
+   - Thẻ tóm tắt PDF hiển thị trực quan ngay trên chi tiết thư kèm tên file và các mốc hạn chót.
+3. **Báo Cáo Tổng Hợp Email Trong Ngày & Xuất File PDF (Daily Digest)**:
+   - Bấm nút **"Báo Cáo Ngày (PDF)"** để mở trình tổng hợp.
+   - AI tự động gom nhóm hàng chục email trong ngày theo danh mục (ví dụ: *10 email nộp bài, 8 email thông báo học vụ, 5 email thắc mắc, 7 email khẩn cấp*).
+   - Tự động xuất ra tệp tài liệu PDF chuẩn A4 sang trọng, có bảng thống kê, chi tiết từng nhóm thư và danh sách công việc cần xử lý tiếp theo (Action Items).
+4. **Phân Định Mức Độ Khẩn Cấp Chuẩn Xác (Urgency)**:
+   - **Khẩn cấp (Đỏ)**: Sự cố sập hệ thống, hoãn lịch thi/họp đột xuất trong vài giờ, email hỏa tốc từ lãnh đạo.
+   - **Cao (Vàng cam)**: Yêu cầu giải quyết trong ngày, hạn chót sát nút (< 24 giờ).
+   - **Trung bình (Xanh dương)**: Công việc thường nhật, trao đổi tiến độ.
+   - **Thấp (Xám)**: Email nộp bài tập định kỳ, thông báo chung, thư cảm ơn.
+5. **Soạn & Gửi Email Mới**: Hỗ trợ gửi email trực tiếp qua Gmail API v1 với xác thực an toàn OAuth 2.0.
 
 ---
 

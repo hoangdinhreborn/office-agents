@@ -98,13 +98,41 @@ export interface CalendarEvent {
 
 export interface ProcessedEmail {
   id: string;
-  sender: string;
+  sender?: string;
+  sender_name?: string;
+  sender_email?: string;
   subject: string;
   received_time: string;
   urgency: string;
+  category?: string;
+  folder?: string;
   summary: string;
+  has_attachments?: boolean;
+  pdf_filename?: string | null;
+  pdf_summary?: string | null;
   calendar_hint?: string;
   issue_description?: string;
+}
+
+export interface EmailFolderRule {
+  id: string;
+  folder_name: string;
+  description?: string;
+  keywords: string[];
+  senders: string[];
+  color?: string;
+  auto_apply_gmail_label?: boolean;
+  created_at?: string;
+}
+
+export interface DailyDigestResponse {
+  target_date: string;
+  total_emails: number;
+  urgent_count: number;
+  pdf_count: number;
+  categories: Record<string, ProcessedEmail[]>;
+  executive_summary: string;
+  action_items: string[];
 }
 
 export interface FeedbackRecord {

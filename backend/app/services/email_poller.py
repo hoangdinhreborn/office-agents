@@ -5,6 +5,8 @@ from typing import Any, Dict, List, Optional
 from apscheduler.schedulers.background import BackgroundScheduler
 
 from app.agents.calendar_agent import calendar_agent
+from app.agents.email_agent import route_and_apply_folder, parse_email_analysis
+from app.agents.summary_agent import summary_agent
 from app.config import settings
 from app.database.database import SessionLocal
 from app.database.models import CalendarRecord, EmailProcessedRecord
@@ -111,7 +113,14 @@ class EmailPoller:
                 msg_events_count = 0
                 pdf_count = 0
 
-                # 2.1 Calendar extraction from email body
+                # 2.0 Determine folder and route email
+                target_folder = route_and_apply_folder(msg, db)
+                msg.folder = target_folder
+
+                # 2.1 Parse urgency and category
+                analysis_parsed = parse_email_analysis(f"Tiêu đề: {msg.subject}\nNội dung: {msg.body}")
+
+                # 2.2 Calendar extraction from email body
                 combined_text = f"Tiêu đề email: {msg.subject}\nNgười gửi: {msg.sender_name} <{msg.sender_email}>\nThời gian: {msg.received_time}\n\nNội dung:\n{msg.body}"
                 try:
                     res = calendar_agent.extract_and_schedule(
@@ -143,15 +152,22 @@ class EmailPoller:
                 except Exception as agent_err:
                     logger.error(f"Lỗi xử lý CalendarAgent cho email {msg.id}: {agent_err}")
 
-                # 2.2 Process PDF attachments (if any)
+                # 2.3 Process and summarize PDF attachments (if any)
+                pdf_filename = None
+                pdf_summary = None
                 for att in msg.attachments:
                     if att.is_pdf and att.data:
                         pdf_count += 1
                         try:
-                            pdf_doc = load_pdf_from_bytes(att.data, filename=att.filename)
-                            if pdf_doc.full_text.strip():
+                            sum_res = summary_agent.summarize_pdf(pdf_source=att.data, filename=att.filename)
+                            pdf_filename = att.filename
+                            pdf_summary = sum_res.executive_summary or sum_res.full_markdown
+
+                            # Extract deadlines from PDF for calendar
+                            if sum_res.deadlines:
+                                cal_input = "\n".join(sum_res.deadlines)
                                 pdf_res = calendar_agent.extract_and_schedule(
-                                    input_text=pdf_doc.full_text[:3000],
+                                    input_text=cal_input,
                                     source_type="email",
                                     source_reference=f"attachment:{att.filename}",
                                     auto_schedule=True,
@@ -175,20 +191,37 @@ class EmailPoller:
                                         db.merge(rec)
                                         msg_events_count += 1
                                         events_count += 1
+                            break
                         except Exception as pdf_err:
-                            logger.warning(f"Lỗi đọc PDF đính kèm {att.filename}: {pdf_err}")
+                            logger.warning(f"Lỗi xử lý PDF đính kèm {att.filename}: {pdf_err}")
 
-                # 2.3 Record processed email to DB
+                # 2.4 Record processed email to DB with full details
+                s_disp = f"{msg.sender_name} <{msg.sender_email}>" if msg.sender_name else msg.sender_email
                 proc_rec = EmailProcessedRecord(
                     id=msg.id,
                     source=source,
                     subject=msg.subject,
+                    sender=s_disp,
+                    sender_name=msg.sender_name or msg.sender_email,
                     sender_email=msg.sender_email,
                     received_time=msg.received_time,
+                    folder=target_folder,
+                    urgency=analysis_parsed.get("urgency", "Trung bình"),
+                    category=analysis_parsed.get("category", "Khác"),
+                    body=msg.body,
+                    body_snippet=msg.body[:1000] if msg.body else msg.subject,
+                    summary=analysis_parsed.get("summary") or msg.body,
+                    full_analysis=analysis_parsed.get("full_analysis") or "",
+                    issue_description=analysis_parsed.get("issue_desc"),
+                    calendar_hint=analysis_parsed.get("cal_hint"),
+                    has_issue_to_solve=bool(analysis_parsed.get("has_issue")),
+                    has_calendar_event=bool(analysis_parsed.get("has_cal") or msg_events_count > 0),
                     has_attachments=msg.has_attachments,
                     pdf_attachments_count=pdf_count,
+                    pdf_filename=pdf_filename,
+                    pdf_summary=pdf_summary,
                     calendar_events_count=msg_events_count,
-                    solution_generated=False,
+                    solution_generated=bool(analysis_parsed.get("has_issue")),
                     status="processed",
                 )
                 db.add(proc_rec)

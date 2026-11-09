@@ -10,7 +10,14 @@ from sqlalchemy.orm import Session
 from app.agents.orchestrator import orchestrator
 from app.config import settings
 from app.database.database import get_db
-from app.database.models import CalendarRecord, ChatMessageRecord, ChatSessionRecord
+from app.database.models import (
+    CalendarRecord,
+    ChatMessageRecord,
+    ChatSessionRecord,
+    DocumentRecord,
+    EmailProcessedRecord,
+    SolutionRecord,
+)
 from app.integrations.calendar import calendar_service
 from app.llm.ollama import check_ollama_status
 from app.schemas.chat import (
@@ -230,6 +237,91 @@ def _persist_scheduled_calendar_events(db: Session, calendar_data: Optional[Dict
             db.merge(rec)
 
 
+def _persist_email_records(db: Session, email_data: Optional[List[Dict[str, Any]]]) -> None:
+    if not email_data:
+        return
+    for em in email_data:
+        try:
+            m_id = em.get("id") or em.get("message_id")
+            if not m_id:
+                continue
+            sender_raw = em.get("sender", "")
+            s_name = sender_raw.split("<")[0].strip(" \"'") if "<" in sender_raw else sender_raw
+            s_email = sender_raw.split("<")[-1].replace(">", "").strip() if "<" in sender_raw else sender_raw
+            rec = db.query(EmailProcessedRecord).filter(EmailProcessedRecord.id == m_id).first()
+            if not rec:
+                rec = EmailProcessedRecord(
+                    id=m_id,
+                    source="gmail",
+                    subject=em.get("subject", "(Không có tiêu đề)"),
+                    sender=sender_raw,
+                    sender_name=s_name,
+                    sender_email=s_email,
+                    received_time=em.get("received_time", ""),
+                    folder=em.get("folder", "INBOX"),
+                    urgency=em.get("urgency", "Trung bình"),
+                    category=em.get("category", "Khác"),
+                    summary=em.get("summary") or em.get("full_analysis", ""),
+                    full_analysis=em.get("full_analysis", ""),
+                    body_snippet=em.get("summary", "")[:1000],
+                    issue_description=em.get("issue_description"),
+                    calendar_hint=em.get("calendar_hint"),
+                    has_issue_to_solve=bool(em.get("has_issue_to_solve")),
+                    has_calendar_event=bool(em.get("has_calendar_event")),
+                    pdf_filename=em.get("pdf_filename"),
+                    pdf_summary=em.get("pdf_summary"),
+                    status="processed",
+                )
+                db.add(rec)
+            else:
+                rec.summary = em.get("summary") or rec.summary
+                rec.urgency = em.get("urgency") or rec.urgency
+                rec.category = em.get("category") or rec.category
+                rec.sender = sender_raw or rec.sender
+            db.commit()
+        except Exception as exc:
+            db.rollback()
+            logger.warning(f"Lỗi lưu email từ Chat vào DB: {exc}")
+
+
+def _persist_solution_records(db: Session, solution_data: Optional[Dict[str, Any]], problem_hint: str) -> None:
+    if not solution_data:
+        return
+    try:
+        prob = solution_data.get("problem_statement") or problem_hint
+        rc = solution_data.get("root_cause_analysis") or ""
+        md = solution_data.get("full_markdown") or ""
+        rec = SolutionRecord(
+            problem=prob,
+            root_cause=rc,
+            full_markdown=md,
+        )
+        db.add(rec)
+        db.commit()
+    except Exception as exc:
+        db.rollback()
+        logger.warning(f"Lỗi lưu solution từ Chat vào DB: {exc}")
+
+
+def _persist_document_records(db: Session, summary_data: Optional[Dict[str, Any]], filename: Optional[str] = None) -> None:
+    if not summary_data:
+        return
+    try:
+        fname = filename or summary_data.get("source_filename") or "document.pdf"
+        rec = DocumentRecord(
+            filename=fname,
+            total_pages=summary_data.get("total_pages", 1),
+            executive_summary=summary_data.get("executive_summary", ""),
+            full_markdown=summary_data.get("full_markdown", ""),
+        )
+        rec.set_deadlines(summary_data.get("deadlines", []))
+        db.add(rec)
+        db.commit()
+    except Exception as exc:
+        db.rollback()
+        logger.warning(f"Lỗi lưu document từ Chat vào DB: {exc}")
+
+
 @router.post("", response_model=ChatResponse)
 def chat_endpoint(request: ChatRequest, db: Session = Depends(get_db)) -> ChatResponse:
     """
@@ -263,8 +355,11 @@ def chat_endpoint(request: ChatRequest, db: Session = Depends(get_db)) -> ChatRe
         history=history,
     )
 
-    # 4.1 Persist any scheduled calendar events to DB
+    # 4.1 Persist any generated data across agents to DB
     _persist_scheduled_calendar_events(db, orch_res.calendar_data)
+    _persist_email_records(db, orch_res.email_data)
+    _persist_solution_records(db, orch_res.solution_data, request.message)
+    _persist_document_records(db, orch_res.summary_data)
 
     # 5. Save AI message to DB
     ai_msg = ChatMessageRecord(
@@ -334,8 +429,11 @@ async def chat_with_file_endpoint(
         pdf_filename=pdf_name,
     )
 
-    # 3.1 Persist any scheduled calendar events to DB
+    # 3.1 Persist any generated data across agents to DB
     _persist_scheduled_calendar_events(db, orch_res.calendar_data)
+    _persist_email_records(db, orch_res.email_data)
+    _persist_solution_records(db, orch_res.solution_data, message)
+    _persist_document_records(db, orch_res.summary_data, pdf_name)
 
     # 4. Save AI message to DB
     ai_msg = ChatMessageRecord(

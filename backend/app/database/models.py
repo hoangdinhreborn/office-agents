@@ -60,14 +60,60 @@ class EmailProcessedRecord(Base):
     source = Column(String(50), nullable=False)  # "gmail", "graph", "desktop", "imap", "eml"
     subject = Column(String(500), default="(Không có tiêu đề)")
     sender_email = Column(String(255), default="")
+    sender_name = Column(String(255), default="")
+    sender = Column(String(255), default="")
     received_time = Column(String(100), default="")
+    folder = Column(String(100), default="INBOX")
+    urgency = Column(String(20), default="Trung bình")  # "Thấp", "Trung bình", "Cao", "Khẩn cấp"
+    category = Column(String(50), default="Khác")  # "Nộp bài", "Học vụ", "Thắc mắc", "Công việc", "Khẩn cấp", "Khác"
+    body = Column(Text, nullable=True)
+    body_snippet = Column(Text, nullable=True)
+    summary = Column(Text, nullable=True)  # Toàn bộ nội dung phân tích Markdown
+    full_analysis = Column(Text, nullable=True)
+    issue_description = Column(Text, nullable=True)
+    calendar_hint = Column(Text, nullable=True)
+    has_issue_to_solve = Column(Boolean, default=False)
+    has_calendar_event = Column(Boolean, default=False)
     has_attachments = Column(Boolean, default=False)
     pdf_attachments_count = Column(Integer, default=0)
+    pdf_filename = Column(String(255), nullable=True)
+    pdf_summary = Column(Text, nullable=True)
     calendar_events_count = Column(Integer, default=0)
     solution_generated = Column(Boolean, default=False)
     status = Column(String(50), default="processed")  # "processed", "skipped", "error"
     error_message = Column(Text, nullable=True)
     processed_at = Column(DateTime, default=datetime.utcnow)
+
+
+class EmailFolderRuleRecord(Base):
+    __tablename__ = "email_folder_rules"
+
+    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    folder_name = Column(String(100), nullable=False, unique=True)
+    description = Column(String(255), default="")
+    keywords_json = Column(Text, default="[]")  # e.g. ["bài tập", "nộp bài", "assignment"]
+    senders_json = Column(Text, default="[]")   # e.g. ["*@student.edu.vn", "daotao@..."]
+    color = Column(String(20), default="#3B82F6")
+    auto_apply_gmail_label = Column(Boolean, default=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    def get_keywords(self) -> list:
+        try:
+            return json.loads(self.keywords_json)
+        except Exception:
+            return []
+
+    def set_keywords(self, items: list):
+        self.keywords_json = json.dumps(items, ensure_ascii=False)
+
+    def get_senders(self) -> list:
+        try:
+            return json.loads(self.senders_json)
+        except Exception:
+            return []
+
+    def set_senders(self, items: list):
+        self.senders_json = json.dumps(items, ensure_ascii=False)
 
 
 class RLFeedbackRecord(Base):

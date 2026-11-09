@@ -2,14 +2,33 @@ import {
   ChatApiResponse,
   ChatSessionDetail,
   ChatSessionSummary,
+  DailyDigestResponse,
+  EmailFolderRule,
   FeedbackRecord,
   FeedbackStats,
+  ProcessedEmail,
   SystemStatus,
   TasksListResponse,
   UpcomingEventsResponse,
 } from "@/types";
 
-const API_BASE = "/api";
+const getApiBase = (): string => {
+  const envBase = process.env.NEXT_PUBLIC_API_BASE?.trim().replace(/['"]/g, "");
+  if (envBase) {
+    return `${envBase.replace(/\/+$/, "")}/api`;
+  }
+  return "http://127.0.0.1:8000/api";
+};
+
+const API_BASE = getApiBase();
+
+const buildUrl = (path: string): URL => {
+  if (API_BASE.startsWith("http://") || API_BASE.startsWith("https://")) {
+    return new URL(`${API_BASE}${path}`);
+  }
+  const origin = typeof window !== "undefined" ? window.location.origin : "http://127.0.0.1:8000";
+  return new URL(`${origin}${API_BASE}${path}`);
+};
 
 export const api = {
   // Chat & Sessions
@@ -78,7 +97,7 @@ export const api = {
 
   // Tasks
   async getTasks(status: string = "all", source?: string): Promise<TasksListResponse> {
-    const url = new URL(`${window.location.origin}${API_BASE}/tasks`);
+    const url = buildUrl("/tasks");
     if (status) url.searchParams.set("status", status);
     if (source) url.searchParams.set("source", source);
     const res = await fetch(url.toString());
@@ -151,14 +170,19 @@ export const api = {
     allowed_senders?: string[];
     limit?: number;
     unread_only?: boolean;
-  }): Promise<any[]> {
+    page_token?: string;
+  }): Promise<{ items: any[]; next_page_token?: string; count: number }> {
     const res = await fetch(`${API_BASE}/emails/fetch`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(data),
     });
     if (!res.ok) throw new Error("Không thể tải danh sách email");
-    return res.json();
+    const json = await res.json();
+    if (Array.isArray(json)) {
+      return { items: json, count: json.length };
+    }
+    return json;
   },
 
   async analyzeEmails(data: {
@@ -166,14 +190,39 @@ export const api = {
     allowed_senders?: string[];
     limit?: number;
     unread_only?: boolean;
-  }): Promise<any[]> {
+    page_token?: string;
+  }): Promise<{ items: any[]; next_page_token?: string; count: number }> {
     const res = await fetch(`${API_BASE}/emails/analyze`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(data),
     });
     if (!res.ok) throw new Error("Không thể quét hộp thư");
-    return res.json();
+    const json = await res.json();
+    if (Array.isArray(json)) {
+      return { items: json, count: json.length };
+    }
+    return json;
+  },
+
+  async getProcessedEmails(params?: {
+    page?: number;
+    page_size?: number;
+    folder?: string;
+    category?: string;
+  }): Promise<{ items: ProcessedEmail[]; total: number; page: number; total_pages: number }> {
+    const url = buildUrl("/emails/processed");
+    if (params?.page) url.searchParams.set("page", String(params.page));
+    if (params?.page_size) url.searchParams.set("page_size", String(params.page_size));
+    if (params?.folder) url.searchParams.set("folder", params.folder);
+    if (params?.category) url.searchParams.set("category", params.category);
+    const res = await fetch(url.toString());
+    if (!res.ok) throw new Error("Không thể tải email đã lưu trong cơ sở dữ liệu");
+    const json = await res.json();
+    if (Array.isArray(json)) {
+      return { items: json, total: json.length, page: 1, total_pages: 1 };
+    }
+    return json;
   },
 
   async sendEmail(data: { to: string | string[]; subject: string; body: string }): Promise<any> {
@@ -192,6 +241,70 @@ export const api = {
       const err = await res.json().catch(() => ({}));
       throw new Error(err.detail || "Không thể gửi email");
     }
+    return res.json();
+  },
+
+  async triggerEmailPollNow(): Promise<any> {
+    const res = await fetch(`${API_BASE}/emails/poll-now`, { method: "POST" });
+    if (!res.ok) throw new Error("Không thể kích hoạt quét email");
+    return res.json();
+  },
+
+  async getEmailLabels(): Promise<{ folders: string[]; labels: string[] }> {
+    const res = await fetch(`${API_BASE}/emails/folders`);
+    if (!res.ok) throw new Error("Không thể tải danh sách thư mục");
+    return res.json();
+  },
+
+  async listFolderRules(): Promise<EmailFolderRule[]> {
+    const res = await fetch(`${API_BASE}/emails/rules`);
+    if (!res.ok) throw new Error("Không thể tải danh sách luật phân loại");
+    return res.json();
+  },
+
+  async createFolderRule(data: Partial<EmailFolderRule>): Promise<any> {
+    const res = await fetch(`${API_BASE}/emails/rules`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.detail || "Không thể lưu luật phân loại");
+    }
+    return res.json();
+  },
+
+  async deleteFolderRule(ruleId: string): Promise<any> {
+    const res = await fetch(`${API_BASE}/emails/rules/${ruleId}`, { method: "DELETE" });
+    if (!res.ok) throw new Error("Không thể xóa luật phân loại");
+    return res.json();
+  },
+
+  async getDailyDigest(date?: string): Promise<DailyDigestResponse> {
+    const res = await fetch(`${API_BASE}/emails/daily-digest`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ date }),
+    });
+    if (!res.ok) throw new Error("Không thể tải báo cáo tổng hợp email");
+    return res.json();
+  },
+
+  async exportDailyDigestPDF(date?: string, filename?: string): Promise<{
+    success: boolean;
+    filename: string;
+    download_url: string;
+    total_emails: number;
+    urgent_count: number;
+    categories: Record<string, number>;
+  }> {
+    const res = await fetch(`${API_BASE}/emails/daily-digest/export-pdf`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ date, filename }),
+    });
+    if (!res.ok) throw new Error("Không thể xuất file PDF báo cáo");
     return res.json();
   },
 

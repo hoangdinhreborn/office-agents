@@ -83,6 +83,27 @@ def extract_json_from_response(text: str) -> Optional[Any]:
         return None
 
 
+def get_available_local_model() -> Optional[str]:
+    """Finds an installed and verified local model in Ollama."""
+    try:
+        tags = client.list()
+        model_list = tags.get("models", [])
+        names = []
+        for m in model_list:
+            n = m.get("model") or m.get("name")
+            if n:
+                names.append(n)
+        for preferred in ["deepseek-r1:8b", "deepseek-r1:1.5b", "qwen2.5:7b", "llama3:8b"]:
+            for name in names:
+                if preferred in name:
+                    return name
+        if names:
+            return names[0]
+    except Exception:
+        pass
+    return "deepseek-r1:8b"
+
+
 def chat_with_llm(
     message: str,
     system_prompt: Optional[str] = None,
@@ -110,13 +131,39 @@ def chat_with_llm(
         response = client.chat(
             model=chosen_model,
             messages=messages,
-            options={"temperature": temperature},
+            options={"temperature": temperature, "num_ctx": 8192},
         )
         elapsed = time.perf_counter() - start_time
         raw_text = response["message"]["content"]
         thought, content = parse_thinking_and_content(raw_text)
         return LLMResponse(raw=raw_text, thought=thought, content=content, elapsed_seconds=elapsed)
     except Exception as exc:
+        exc_str = str(exc)
+        # Check if error is due to unauthorized/cloud/missing model and attempt fallback
+        is_model_unavailable = any(
+            err in exc_str.lower()
+            for err in ["unauthorized", "not found", "status code: 401", "status code: 403", "status code: 404", "does not exist", "pull model"]
+        )
+        if is_model_unavailable:
+            fallback = get_available_local_model()
+            if fallback and fallback != chosen_model:
+                logger.warning(
+                    f"Mô hình '{chosen_model}' không thể truy cập ({exc_str}). "
+                    f"Tự động chuyển đổi sang mô hình Local có sẵn: '{fallback}'"
+                )
+                try:
+                    fb_resp = client.chat(
+                        model=fallback,
+                        messages=messages,
+                        options={"temperature": temperature, "num_ctx": 8192},
+                    )
+                    elapsed = time.perf_counter() - start_time
+                    raw_text = fb_resp["message"]["content"]
+                    thought, content = parse_thinking_and_content(raw_text)
+                    return LLMResponse(raw=raw_text, thought=thought, content=content, elapsed_seconds=elapsed)
+                except Exception as fb_exc:
+                    logger.error(f"Fallback sang '{fallback}' thất bại: {fb_exc}")
+
         elapsed = time.perf_counter() - start_time
         err_msg = f"Lỗi kết nối Ollama model '{chosen_model}': {str(exc)}"
         return LLMResponse(raw=err_msg, thought="", content=err_msg, elapsed_seconds=elapsed)

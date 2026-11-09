@@ -49,12 +49,17 @@ Quy trình phân tích gồm 4 bước bắt buộc:
 SYSTEM_EMAIL_PROMPT = """Bạn là Trợ Lý Xử Lý Email Chuyên Nghiệp (Email Reader Agent).
 Nhiệm vụ của bạn là phân tích các email được quét từ hộp thư (được lọc theo danh sách địa chỉ người gửi cho phép).
 
-Hãy trích xuất:
+Hãy phân tích và trả về thông tin theo cấu trúc chuẩn sau:
 1. 📧 Người gửi, Tiêu đề và Thời gian nhận thư.
-2. 📝 Nội dung tóm tắt chính của email/chuỗi hội thoại.
-3. 🚨 Mức độ khẩn cấp (Thấp / Trung bình / Cao / Khẩn cấp).
-4. 🛠️ Vấn đề cần giải quyết (nếu có - chuyển cho Solution Agent).
-5. 📅 Lịch họp, hạn chót cần tạo lịch (nếu có - chuyển cho Calendar Agent)."""
+2. 🏷️ Phân loại danh mục: [Nộp bài | Học vụ | Thắc mắc | Công việc | Khẩn cấp | Khác]
+3. 🚨 Mức độ khẩn cấp: [Thấp | Trung bình | Cao | Khẩn cấp]
+   - Thấp: Email nộp bài tập thông thường, thông báo định kỳ, thư cảm ơn, tài liệu tham khảo.
+   - Trung bình: Trao đổi công việc thường nhật, hỏi đáp nghiệp vụ, tiến độ dự án.
+   - Cao: Yêu cầu phản hồi trong ngày, hạn chót sát nút (< 24 giờ).
+   - Khẩn cấp: Sự cố kỹ thuật nghiêm trọng, hoãn/đổi lịch đột xuất trong vài giờ tới, yêu cầu hỏa tốc.
+4. 📝 Nội dung tóm tắt chính của email/chuỗi hội thoại.
+5. 🛠️ Vấn đề cần giải quyết (nếu có - chuyển cho Solution Agent).
+6. 📅 Lịch họp, hạn chót cần tạo lịch (nếu có - chuyển cho Calendar Agent)."""
 
 
 SYSTEM_CALENDAR_PROMPT = """Bạn là Chuyên Gia Trích Xuất Lịch Trình & Nhắc Hẹn (Calendar Agent).

@@ -32,6 +32,34 @@ def get_db():
 def init_db():
     import app.database.models  # noqa: F401
     Base.metadata.create_all(bind=engine)
+    # Lightweight schema migration for SQLite
+    try:
+        with engine.connect() as conn:
+            cursor = conn.exec_driver_sql("PRAGMA table_info(emails_processed);")
+            existing_cols = [row[1] for row in cursor.fetchall()]
+            new_cols = {
+                "folder": "VARCHAR(100) DEFAULT 'INBOX'",
+                "urgency": "VARCHAR(20) DEFAULT 'Trung bình'",
+                "category": "VARCHAR(50) DEFAULT 'Khác'",
+                "sender_name": "VARCHAR(255) DEFAULT ''",
+                "sender": "VARCHAR(255) DEFAULT ''",
+                "body": "TEXT",
+                "body_snippet": "TEXT",
+                "summary": "TEXT",
+                "full_analysis": "TEXT",
+                "issue_description": "TEXT",
+                "calendar_hint": "TEXT",
+                "has_issue_to_solve": "BOOLEAN DEFAULT 0",
+                "has_calendar_event": "BOOLEAN DEFAULT 0",
+                "pdf_filename": "VARCHAR(255)",
+                "pdf_summary": "TEXT",
+            }
+            for col_name, col_type in new_cols.items():
+                if existing_cols and col_name not in existing_cols:
+                    conn.exec_driver_sql(f"ALTER TABLE emails_processed ADD COLUMN {col_name} {col_type};")
+            conn.commit()
+    except Exception:
+        pass
 
 
 init_db()

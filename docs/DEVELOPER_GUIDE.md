@@ -99,13 +99,21 @@ Hàm `parse_thinking_and_content()` trong `backend/app/llm/ollama.py` bóc tách
 
 ## 3. Tích Hợp Gmail API & Lịch Điện Tử
 
-### 3.1. Gmail API v1 Integration
+### 3.1. Gmail API v1 & Quản Lý Folder Tự Động
 - Sử dụng Google OAuth 2.0 (`google-auth`, `google-api-python-client`) với token bảo mật lưu tại `data/tokens/`.
 - **Chức năng**:
   - Quét email chưa đọc hoặc tất cả email theo nhãn chỉ định (vd: `INBOX`, `STARRED`).
   - Lọc người gửi theo danh sách whitelist (`allowed_senders`).
+  - **Quản lý Folder & Tự động phân loại (Folder Rules Engine)**:
+    - Bảng `EmailFolderRuleRecord` lưu trữ các luật lọc theo từ khóa (`keywords_json`) và vai trò/người gửi (`senders_json`, hỗ trợ wildcard như `*@student.edu.vn`).
+    - Hàm `route_and_apply_folder()` phân loại email vào thư mục tương ứng và tự động tạo/gắn nhãn trên Gmail API qua `gmail_service.add_label_to_message()`.
+  - **Tự động tóm tắt tệp PDF đính kèm**:
+    - Khi phát hiện tệp PDF đính kèm trong email, hệ thống gọi trực tiếp `SummaryAgent.summarize_pdf(pdf_source=att.data)` để trích xuất tổng quan điều hành và các mốc hạn chót, lưu vào trường `pdf_summary` và `pdf_filename` của `EmailProcessedRecord`.
+  - **Xuất Báo Cáo Tổng Hợp PDF Trong Ngày (Daily Digest PDF)**:
+    - Service `DailyDigestPDFGenerator` tại `app/services/pdf_generator.py` gom nhóm email theo danh mục (Nộp bài, Học vụ, Thắc mắc, Khẩn cấp, Công việc) và xuất file PDF chuẩn A4 sang trọng có hỗ trợ font Unicode tiếng Việt (PyMuPDF).
+  - **Cơ chế bóc tách độ khẩn cấp (Anchored Urgency Parsing)**:
+    - Khắc phục triệt để lỗi gán nhãn sai "Khẩn cấp" bằng thuật toán Regex có neo (`(?:mức độ khẩn cấp|độ khẩn cấp)\s*[:\-–]\s*(Khẩn cấp|Cao|Trung bình|Thấp)`), loại trừ tiêu đề prompt.
   - Soạn và gửi email trực tiếp qua Gmail API (`gmail_service.send_email()`).
-  - Xử lý tệp đính kèm PDF và tự động chuyển sang phân tích tóm tắt.
 
 ### 3.2. Chuông nhắc hẹn trước (Advance Reminders)
 - **Đồng bộ Google Calendar API**:

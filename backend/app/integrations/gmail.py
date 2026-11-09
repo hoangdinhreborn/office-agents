@@ -76,6 +76,7 @@ class GmailService:
         self.token_path = resolve_path(settings.google_gmail_token_path)
         self._bootstrap_token_from_env()
         self._service = None
+        self.last_next_page_token: Optional[str] = None
 
     def _bootstrap_token_from_env(self) -> None:
         if self.token_path.exists():
@@ -241,14 +242,52 @@ class GmailService:
         self._service = build("gmail", "v1", credentials=creds, cache_discovery=False)
         return self._service
 
-    def get_service(self):
+    def get_service(self, force_refresh: bool = False):
+        if force_refresh:
+            self._service = None
         if not self._service:
             self.authenticate(interactive=False)
         return self._service
 
+    def _execute_with_retry(self, fn, max_retries: int = 2):
+        """
+        Executes a Gmail API operation with automatic recovery against stale SSL sockets,
+        [SSL: RECORD_LAYER_FAILURE], BrokenPipeError, ConnectionResetError, and transient timeouts.
+        """
+        last_exc = None
+        for attempt in range(max_retries + 1):
+            try:
+                svc = self.get_service(force_refresh=(attempt > 0))
+                return fn(svc)
+            except Exception as exc:
+                last_exc = exc
+                exc_str = str(exc).lower()
+                is_ssl_or_conn = any(
+                    err in exc_str
+                    for err in [
+                        "record_layer_failure",
+                        "ssl",
+                        "broken pipe",
+                        "connection reset",
+                        "connection aborted",
+                        "timeout",
+                        "handshake",
+                        "eof occurred in violation of protocol",
+                        "transport",
+                    ]
+                )
+                if is_ssl_or_conn and attempt < max_retries:
+                    logger.warning(
+                        f"Gmail API gặp lỗi kết nối/SSL ({exc}), đang làm mới kết nối và thử lại (lần {attempt + 1}/{max_retries})..."
+                    )
+                    self._service = None
+                    time.sleep(0.5)
+                    continue
+                raise last_exc
+
     # ------------------------------------------------------------------ send
     def get_profile_email(self) -> str:
-        profile = self.get_service().users().getProfile(userId="me").execute()
+        profile = self._execute_with_retry(lambda s: s.users().getProfile(userId="me").execute())
         return profile.get("emailAddress", "")
 
     @staticmethod
@@ -293,9 +332,10 @@ class GmailService:
         """Sends an email through Gmail API (users.messages.send). Validates input before any API call."""
         msg = self.build_message(to, subject, body, cc=cc, bcc=bcc, is_html=is_html)
         raw = base64.urlsafe_b64encode(msg.as_bytes()).decode("ascii")
-        service = self.get_service()
         try:
-            sent = service.users().messages().send(userId="me", body={"raw": raw}).execute()
+            sent = self._execute_with_retry(
+                lambda s: s.users().messages().send(userId="me", body={"raw": raw}).execute()
+            )
         except HttpError as exc:
             status = getattr(exc.resp, "status", "?")
             reason = exc._get_reason() if hasattr(exc, "_get_reason") else str(exc)
@@ -317,20 +357,32 @@ class GmailService:
         allowed_senders: Optional[List[str]] = None,
         limit: int = 10,
         unread_only: bool = True,
+        page_token: Optional[str] = None,
     ) -> List[EmailMessage]:
         """
         Fetches emails from Gmail with sender filtering and extracts PDF attachments.
         If unread_only=True, only fetches unread messages; otherwise fetches recent messages in label.
+        Supports page_token for incremental scanning and resilient SSL retries.
         """
-        service = self.get_service()
-        query = f"is:unread label:{label}" if unread_only else f"label:{label}"
+        self.last_next_page_token = None
+        lbl_clean = label.strip() if label else "INBOX"
+        lbl_expr = f'"{lbl_clean}"' if " " in lbl_clean else lbl_clean
+        query = f"is:unread label:{lbl_expr}" if unread_only else f"label:{lbl_expr}"
+
         try:
-            res = service.users().messages().list(
-                userId="me",
-                q=query,
-                maxResults=limit,
-            ).execute()
+            def _list_call(svc):
+                kwargs = {
+                    "userId": "me",
+                    "q": query,
+                    "maxResults": limit,
+                }
+                if page_token:
+                    kwargs["pageToken"] = page_token
+                return svc.users().messages().list(**kwargs).execute()
+
+            res = self._execute_with_retry(_list_call)
             messages_meta = res.get("messages", [])
+            self.last_next_page_token = res.get("nextPageToken")
         except Exception as exc:
             logger.error(f"Lỗi khi truy vấn danh sách email từ Gmail: {exc}")
             return []
@@ -340,11 +392,14 @@ class GmailService:
         for meta in messages_meta:
             msg_id = meta["id"]
             try:
-                msg_data = service.users().messages().get(
-                    userId="me",
-                    id=msg_id,
-                    format="full",
-                ).execute()
+                def _get_call(svc):
+                    return svc.users().messages().get(
+                        userId="me",
+                        id=msg_id,
+                        format="full",
+                    ).execute()
+
+                msg_data = self._execute_with_retry(_get_call)
 
                 payload = msg_data.get("payload", {})
                 headers_list = payload.get("headers", [])
@@ -384,11 +439,13 @@ class GmailService:
                             # Fetch attachment data if attachmentId present
                             if att_id:
                                 try:
-                                    att_obj = service.users().messages().attachments().get(
-                                        userId="me",
-                                        messageId=msg_id,
-                                        id=att_id,
-                                    ).execute()
+                                    att_obj = self._execute_with_retry(
+                                        lambda svc: svc.users().messages().attachments().get(
+                                            userId="me",
+                                            messageId=msg_id,
+                                            id=att_id,
+                                        ).execute()
+                                    )
                                     att_data = _decode_base64_data(att_obj.get("data", ""))
                                 except Exception as att_err:
                                     logger.warning(f"Lỗi tải attachment '{filename}': {att_err}")
@@ -442,6 +499,63 @@ class GmailService:
                 logger.error(f"Lỗi xử lý email id={msg_id}: {msg_err}")
 
         return results
+
+    # ------------------------------------------------------------------ label management
+    def list_user_labels(self) -> List[Dict[str, Any]]:
+        """Lists all labels available in user's Gmail account with SSL auto-recovery."""
+        try:
+            res = self._execute_with_retry(lambda s: s.users().labels().list(userId="me").execute())
+            return res.get("labels", [])
+        except Exception as exc:
+            logger.warning(f"Lỗi khi lấy danh sách nhãn Gmail: {exc}")
+            return []
+
+    def get_or_create_label(self, label_name: str) -> Optional[str]:
+        """Finds existing Gmail label by name or creates it if not found with SSL auto-recovery."""
+        if not label_name or label_name.upper() in ["INBOX", "SENT", "TRASH", "SPAM", "STARRED", "IMPORTANT"]:
+            return label_name.upper()
+
+        try:
+            labels = self.list_user_labels()
+            for lbl in labels:
+                if lbl.get("name", "").strip().lower() == label_name.strip().lower():
+                    return lbl.get("id")
+
+            # Label does not exist, create new label
+            body = {
+                "name": label_name.strip(),
+                "labelListVisibility": "labelShow",
+                "messageListVisibility": "show",
+            }
+            created = self._execute_with_retry(
+                lambda s: s.users().labels().create(userId="me", body=body).execute()
+            )
+            logger.info(f"Đã tạo nhãn Gmail mới: '{label_name}' (id={created.get('id')})")
+            return created.get("id")
+        except Exception as exc:
+            logger.warning(f"Không thể tạo/truy vấn nhãn Gmail '{label_name}': {exc}")
+            return None
+
+    def add_label_to_message(self, message_id: str, label_name: str) -> bool:
+        """Attaches a label to a Gmail message by ID with SSL auto-recovery."""
+        clean_id = message_id.replace("gmail-", "").strip()
+        try:
+            label_id = self.get_or_create_label(label_name)
+            if not label_id:
+                return False
+
+            self._execute_with_retry(
+                lambda s: s.users().messages().modify(
+                    userId="me",
+                    id=clean_id,
+                    body={"addLabelIds": [label_id]},
+                ).execute()
+            )
+            logger.info(f"Đã gắn nhãn '{label_name}' cho email '{clean_id}'.")
+            return True
+        except Exception as exc:
+            logger.warning(f"Lỗi khi gắn nhãn Gmail '{label_name}' cho email '{clean_id}': {exc}")
+            return False
 
 
 gmail_service = GmailService()

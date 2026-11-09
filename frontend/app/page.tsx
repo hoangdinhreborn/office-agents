@@ -16,6 +16,8 @@ import { AddTaskModal } from "@/components/modals/add-task-modal";
 import { CreateEventModal } from "@/components/modals/create-event-modal";
 import { SendEmailModal } from "@/components/modals/send-email-modal";
 import { CritiqueModal } from "@/components/modals/critique-modal";
+import { FolderRulesModal } from "@/components/modals/folder-rules-modal";
+import { DailyDigestModal } from "@/components/modals/daily-digest-modal";
 
 import {
   ChatMessageItem,
@@ -53,6 +55,8 @@ export default function DashboardPage() {
   const [openAddTask, setOpenAddTask] = useState(false);
   const [openCreateEvent, setOpenCreateEvent] = useState(false);
   const [openSendEmail, setOpenSendEmail] = useState(false);
+  const [openFolderRules, setOpenFolderRules] = useState(false);
+  const [openDailyDigest, setOpenDailyDigest] = useState(false);
   const [critiqueState, setCritiqueState] = useState<{
     open: boolean;
     prompt: string;
@@ -280,7 +284,7 @@ export default function DashboardPage() {
 
         {/* VÙNG 3: CONTEXTUAL WORKSPACE ROUTER */}
         <main className="flex-1 min-h-0 flex flex-col min-w-0 overflow-hidden relative">
-          {currentView === "chat" && (
+          <div className={currentView === "chat" ? "flex-1 min-h-0 flex flex-col min-w-0" : "hidden"}>
             <ChatView
               messages={messages}
               isLoading={isLoading}
@@ -294,33 +298,39 @@ export default function DashboardPage() {
               attachedFile={attachedFile}
               onAttachFile={setAttachedFile}
             />
-          )}
+          </div>
 
-          {currentView === "docs" && <DocsView onQuickPrompt={handleQuickPrompt} />}
+          <div className={currentView === "docs" ? "flex-1 min-h-0 flex flex-col min-w-0" : "hidden"}>
+            <DocsView onQuickPrompt={handleQuickPrompt} />
+          </div>
 
-          {currentView === "inbox" && (
+          <div className={currentView === "inbox" ? "flex-1 min-h-0 flex flex-col min-w-0" : "hidden"}>
             <InboxView
               onQuickPrompt={handleQuickPrompt}
               onOpenSendModal={() => setOpenSendEmail(true)}
+              onOpenFolderRulesModal={() => setOpenFolderRules(true)}
+              onOpenDailyDigestModal={() => setOpenDailyDigest(true)}
             />
-          )}
+          </div>
 
-          {currentView === "calendar" && (
+          <div className={currentView === "calendar" ? "flex-1 min-h-0 flex flex-col min-w-0" : "hidden"}>
             <CalendarView
               upcomingData={upcomingData}
               onRefreshUpcoming={() => api.getUpcomingEvents(24).then(setUpcomingData)}
               onOpenCreateModal={() => setOpenCreateEvent(true)}
             />
-          )}
+          </div>
 
-          {currentView === "tasks" && (
+          <div className={currentView === "tasks" ? "flex-1 min-h-0 flex flex-col min-w-0" : "hidden"}>
             <TasksView
               onOpenAddModal={() => setOpenAddTask(true)}
               onTasksCountChange={setPendingTasksCount}
             />
-          )}
+          </div>
 
-          {currentView === "training" && <TrainingView />}
+          <div className={currentView === "training" ? "flex-1 min-h-0 flex flex-col min-w-0" : "hidden"}>
+            <TrainingView />
+          </div>
         </main>
       </div>
 
@@ -357,6 +367,16 @@ export default function DashboardPage() {
       <SendEmailModal
         open={openSendEmail}
         onOpenChange={setOpenSendEmail}
+      />
+
+      <FolderRulesModal
+        open={openFolderRules}
+        onOpenChange={setOpenFolderRules}
+      />
+
+      <DailyDigestModal
+        open={openDailyDigest}
+        onOpenChange={setOpenDailyDigest}
       />
 
       <CritiqueModal
