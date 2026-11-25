@@ -1,0 +1,9 @@
+.venv
+venv
+__pycache__
+**/__pycache__
+.pytest_cache
+data
+.env*
+google_credentials.json
+client_secret*.json

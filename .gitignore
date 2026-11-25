@@ -24,6 +24,8 @@ data/documents/*
 data/processed/*
 data/tokens/*
 data/emails_inbox/*
+data/email_attachments/
+data/deleted_projects/
 data/calendar/*
 training/outputs/*
 !data/documents/.gitkeep
@@ -46,3 +48,6 @@ out/
 # OS
 .DS_Store
 Thumbs.db
+
+# Generated daily harness memory
+data/reports/
