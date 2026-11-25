@@ -1,6 +1,6 @@
 # Hướng Dẫn Thiết Lập OAuth 2.0: Google Calendar & Gmail API
 
-Tài liệu này hướng dẫn chi tiết từng bước thiết lập quyền truy cập đám mây (Cloud Integration) cho **Google Calendar** và **Gmail API v1** trên hệ thống **Local AI Assistant**.
+Tài liệu này hướng dẫn chi tiết từng bước thiết lập quyền truy cập đám mây (Cloud Integration) cho **Google Calendar** và **Gmail API v1** trên hệ thống **deskhive-harness**.
 
 ---
 
@@ -19,7 +19,7 @@ Hệ thống hoạt động theo cơ chế **Outbound Polling (Quét chủ độ
 ### Bước 1: Tạo Dự Án Trên Google Cloud Console
 1. Truy cập [Google Cloud Console](https://console.cloud.google.com/) và đăng nhập bằng tài khoản Google.
 2. Nhấn vào menu chọn dự án ở góc trên bên trái -> Chọn **New Project** (Dự án mới).
-3. Đặt tên dự án: `Local-AI-Assistant` -> Nhấn **Create**.
+3. Đặt tên dự án: `deskhive-harness` -> Nhấn **Create**.
 
 ### Bước 2: Bật Các API Cần Thiết
 1. Vào menu **APIs & Services** -> **Enabled APIs & services** -> Nhấn **+ ENABLE APIS AND SERVICES**.
@@ -31,7 +31,7 @@ Hệ thống hoạt động theo cơ chế **Outbound Polling (Quét chủ độ
 1. Ở thanh menu bên trái, chọn **OAuth consent screen**.
 2. Chọn **External** (Người dùng bên ngoài) -> Nhấn **Create**.
 3. Điền thông tin cơ bản:
-   - App name: `Local AI Assistant`
+   - App name: `deskhive-harness`
    - User support email: Email của bạn.
    - Developer contact email: Email của bạn.
 4. Nhấn **Save and Continue** qua các bước Scopes.
@@ -44,7 +44,7 @@ Hệ thống hoạt động theo cơ chế **Outbound Polling (Quét chủ độ
 1. Chọn **Credentials** ở thanh menu bên trái.
 2. Nhấn **+ CREATE CREDENTIALS** -> Chọn **OAuth client ID**.
 3. Application type: Chọn **Desktop app**.
-4. Name: `Local AI Desktop Client`.
+4. Name: `deskhive-harness Desktop Client`.
 5. Nhấn **Create**.
 6. Một cửa sổ hiện ra -> Nhấn nút **DOWNLOAD JSON**.
 7. Đổi tên file đã tải thành:
@@ -64,7 +64,7 @@ python backend/scripts/smoke_test_gmail_send.py
 # 3. Gửi đến địa chỉ chỉ định:
 python backend/scripts/smoke_test_gmail_send.py --to nguoinhan@example.com --subject "[Test] Thử nghiệm gửi mail"
 ```
-Trình duyệt sẽ tự động mở lên -> Đăng nhập tài khoản Google của bạn -> Nhấn "Tiếp tục" (Advanced -> Go to Local AI Assistant) -> Đồng ý cấp quyền đọc và gửi email.
+Trình duyệt sẽ tự động mở lên -> Đăng nhập tài khoản Google của bạn -> Nhấn "Tiếp tục" (Advanced -> Go to deskhive-harness) -> Đồng ý cấp quyền đọc và gửi email.
 Token sẽ tự động được lưu và mã hóa an toàn trong `data/tokens/google_gmail_token.json`.
 
 > **Lưu ý quan trọng về loại OAuth Client**:
