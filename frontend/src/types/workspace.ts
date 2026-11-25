@@ -30,7 +30,14 @@ export interface ProjectMember {
   role: MemberRole;
 }
 
-export type SummaryStyle = 'ngắn' | 'ý chính' | 'gạch đầu dòng';
+export type MailUrgency = 'Thấp' | 'Trung bình' | 'Cao' | 'Khẩn cấp';
+
+export interface PendingMailRoute {
+  messageId: string;
+  senderEmail: string;
+  subject: string;
+  candidateProjectIds: string[];
+}
 
 export interface SolutionOption {
   id: string;
@@ -71,13 +78,39 @@ export interface ScheduleDraft {
   customRepeat: CustomRecurrence;
   hasDeadline: boolean;
   deadlineDate: string; // YYYY-MM-DD
+  deadlineAt?: string; // Exact source deadline including timezone
   description: string;
   isApproved: boolean;
   approvedEventId?: string;
+  needsConfirmation?: boolean;
+  confidence?: number;
+}
+
+export interface CalendarDraftItem {
+  id: string;
+  resourceId: string | null;
+  sessionId: string | null;
+  revision: number;
+  eventId: string | null;
+  operationStatus: string | null;
+  googleLink?: string | null;
+  googleAccountEmail?: string | null;
+  draft: ScheduleDraft;
+}
+
+export interface CalendarConflict {
+  id: string;
+  title: string;
+  startTime: string;
+  endTime: string;
+  allDay: boolean;
+  source: 'google' | 'local';
 }
 
 export interface CalendarEvent {
   id: string;
+  googleLink?: string;
+  googleAccountEmail?: string;
   projectId: string;
   resourceId: string;
   title: string;
@@ -97,6 +130,8 @@ export interface ReplyAttachmentFile {
   name: string;
   sizeLabel: string;
   source: 'upload' | 'resource';
+  sizeBytes?: number;
+  file?: File;
   resourceId?: string;
 }
 
@@ -127,12 +162,14 @@ export interface BaseResource {
   type: ResourceType;
   createdAt: string; // ISO string
   selected: boolean;
-  summaryByStyle: Record<SummaryStyle, string>;
-  activeSummaryStyle: SummaryStyle;
+  summaryMarkdown: string;
   solutions: SolutionOption[];
+  constraintHistory?: string[];
+  solutionRevision?: number;
   selectedSolutionId?: string;
   repliedAt?: string;
   schedule: ScheduleDraft;
+  scheduleDrafts?: CalendarDraftItem[];
 }
 
 export interface PdfSection {
@@ -158,12 +195,14 @@ export interface PdfViewerState {
   targetPage: number;
   highlightSectionId?: string;
   citationLabel?: string;
+  citationQuote?: string;
   focusNonce: number;
 }
 
 export interface PdfResource extends BaseResource {
   type: 'pdf';
   fileName: string;
+  sizeBytes?: number;
   fileSize: string; // e.g., "2,4 MB"
   pageCount: number;
   isOcr?: boolean;
@@ -172,6 +211,7 @@ export interface PdfResource extends BaseResource {
   issuedDate?: string;
   fileUrl?: string;
   pages?: PdfPage[];
+  processingWarning?: string;
 }
 
 export interface MailResource extends BaseResource {
@@ -181,6 +221,13 @@ export interface MailResource extends BaseResource {
   subject: string;
   folderName: string;
   hasPdfAttachment?: boolean;
+  urgency?: MailUrgency;
+  hasIssueToSolve?: boolean;
+  hasCalendarEvent?: boolean;
+  attachedPdfs?: PdfResource[];
+  processingStatus?: string;
+  processingStage?: string;
+  processingError?: string;
 }
 
 export type ResourceItem = PdfResource | MailResource;
@@ -201,6 +248,14 @@ export interface ProjectConfig {
   collectRlFeedback: boolean;
 }
 
+export interface DailyOverview {
+  date: string;
+  markdown: string;
+  email_count: number;
+  highlight_ids: string[];
+  max_words: number;
+}
+
 export interface Project {
   id: string;
   title: string;
@@ -208,6 +263,7 @@ export interface Project {
   createdAt: string; // ISO string
   members: ProjectMember[];
   resources: ResourceItem[];
+  dailyOverview?: DailyOverview | null;
   config: ProjectConfig;
 }
 
@@ -223,6 +279,10 @@ export interface ChatMessage {
   providerId?: string;
   fallbackUsed?: boolean;
   feedback?: 'up' | 'down' | null;
+  calendarDrafts?: CalendarDraftItem[];
+  processingSteps?: string[];
+  streamStatus?: 'streaming' | 'complete' | 'error';
+  streamError?: string;
 }
 
 export interface ChatSession {
@@ -231,6 +291,7 @@ export interface ChatSession {
   title: string;
   updatedAt: string;
   messages: ChatMessage[];
+  isLocal?: boolean;
 }
 
 export type ApiProtocol =

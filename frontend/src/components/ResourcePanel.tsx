@@ -16,11 +16,12 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useWorkspaceStore } from '../store/useWorkspaceStore';
 import type {
   Project,
+  MailResource,
   ResourceItem,
   ResourceViewMode,
   SortMode,
 } from '../types/workspace';
-import { getWeekGroupKey, truncate18 } from '../utils/format';
+import { getWeekGroupKey, truncate10, truncate18 } from '../utils/format';
 import { ResourceToolbar } from './ResourceToolbar';
 
 interface ResourcePanelProps {
@@ -80,7 +81,11 @@ export function ResourcePanel({ project, onMeasureMinWidth }: ResourcePanelProps
   const resourceInputSubTab = useWorkspaceStore((s) => s.resourceInputSubTab);
   const expandedToolbarByResourceId = useWorkspaceStore((s) => s.expandedToolbarByResourceId);
   const pdfViewer = useWorkspaceStore((s) => s.pdfViewer);
-  const isSyncingMail = useWorkspaceStore((s) => s.isSyncingMail);
+  const uploadingPdfProjectId = useWorkspaceStore((s) => s.uploadingPdfProjectId);
+  const isUploadingPdf = uploadingPdfProjectId === project.id;
+  const pendingMailRoutes = useWorkspaceStore((s) => s.pendingMailRoutes);
+  const routeMailToProject = useWorkspaceStore((s) => s.routeMailToProject);
+  const isSyncingMail = useWorkspaceStore((s) => s.syncingMailProjectIds.includes(project.id));
 
   const setResourceSort = useWorkspaceStore((s) => s.setResourceSort);
   const setResourceViewMode = useWorkspaceStore((s) => s.setResourceViewMode);
@@ -93,8 +98,16 @@ export function ResourcePanel({ project, onMeasureMinWidth }: ResourcePanelProps
   const openPdfViewer = useWorkspaceStore((s) => s.openPdfViewer);
   const syncProjectEmails = useWorkspaceStore((s) => s.syncProjectEmails);
   const uploadPdfFile = useWorkspaceStore((s) => s.uploadPdfFile);
-  const uploadSampleOcrPdf = useWorkspaceStore((s) => s.uploadSampleOcrPdf);
+  useEffect(() => {
+    void syncProjectEmails(project.id, true);
+    const timer = window.setInterval(() => { if (document.visibilityState === 'visible') void syncProjectEmails(project.id, true); }, 5000);
+    return () => window.clearInterval(timer);
+  }, [project.id, syncProjectEmails]);
 
+  const [relationFilter, setRelationFilter] = useState('all');
+  const [urgencyFilter, setUrgencyFilter] = useState('all');
+  const [sortUrgency, setSortUrgency] = useState(false);
+  const urgencyRank: Record<MailResource['urgency'], number> = { 'Khẩn cấp': 0, 'Cao': 1, 'Trung bình': 2, 'Thấp': 3 };
   const [sortOpen, setSortOpen] = useState(false);
   const [collapsedWeeks, setCollapsedWeeks] = useState<Record<string, boolean>>({});
   const sortRef = useRef<HTMLDivElement>(null);
@@ -130,8 +143,16 @@ export function ResourcePanel({ project, onMeasureMinWidth }: ResourcePanelProps
   }, [onMeasureMinWidth, project.resources.length, resourceViewMode]);
 
   const sortedResources = useMemo(() => {
-    const list = [...project.resources];
+    const list = project.resources.filter((resource) => resource.type !== 'mail' ||
+      ((relationFilter === 'all' || resource.senderRole === relationFilter) &&
+       (['queued', 'processing'].includes(resource.processingStatus || '') || urgencyFilter === 'all' || resource.urgency === urgencyFilter)));
+
     list.sort((a, b) => {
+      if (sortUrgency) {
+        const delta = (a.type === 'mail' ? urgencyRank[a.urgency] ?? 4 : 5) -
+          (b.type === 'mail' ? urgencyRank[b.urgency] ?? 4 : 5);
+        if (delta) return delta;
+      }
       switch (resourceSort) {
         case 'date_desc':
           return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
@@ -144,7 +165,7 @@ export function ResourcePanel({ project, onMeasureMinWidth }: ResourcePanelProps
       }
     });
     return list;
-  }, [project.resources, resourceSort]);
+  }, [project.resources, resourceSort, relationFilter, urgencyFilter, sortUrgency]);
 
   const weekGroups = useMemo(() => {
     const map = new Map<
@@ -172,17 +193,19 @@ export function ResourcePanel({ project, onMeasureMinWidth }: ResourcePanelProps
     [sortedResources]
   );
 
+
   const hasExpandedToolbar = useMemo(
     () => project.resources.some((r) => Boolean(expandedToolbarByResourceId[r.id])),
     [project.resources, expandedToolbarByResourceId]
   );
 
-  const allSelected =
-    project.resources.length > 0 && project.resources.every((r) => r.selected);
+  const selectableResources = project.resources.filter((r) => !(r.type === 'mail' && ['queued', 'processing'].includes(r.processingStatus || '')));
+  const allSelected = selectableResources.length > 0 && selectableResources.every((r) => r.selected);
 
   const renderResourceWrapper = (item: ResourceItem) => {
     const activeToolbarTab = expandedToolbarByResourceId[item.id] ?? null;
     const isExpanded = Boolean(activeToolbarTab);
+    const pending = item.type === 'mail' && (item.processingStatus === 'queued' || item.processingStatus === 'processing');
 
     return (
       <div
@@ -198,6 +221,7 @@ export function ResourcePanel({ project, onMeasureMinWidth }: ResourcePanelProps
           <input
             type="checkbox"
             checked={item.selected}
+            disabled={pending}
             aria-label={`Chọn nguồn ${item.type === 'pdf' ? item.fileName : item.subject}`}
             onChange={() => toggleResourceSelection(project.id, item.id)}
             className="w-4 h-4 accent-[#14213D] dark:accent-[#A8B5CE] shrink-0 cursor-pointer"
@@ -217,7 +241,7 @@ export function ResourcePanel({ project, onMeasureMinWidth }: ResourcePanelProps
                 </span>
                 <div className="min-w-0 flex flex-col">
                   <span className="text-[14px] leading-[20px] font-semibold text-[var(--text)] group-hover:text-[var(--accent-ink)] transition-colors truncate">
-                    {item.fileName}
+                    {truncate10(item.fileName)}
                   </span>
                   <span className="text-[12px] leading-[16px] text-[var(--text-muted)] tabular-nums">
                     {item.fileSize} · {item.pageCount} trang
@@ -288,6 +312,7 @@ export function ResourcePanel({ project, onMeasureMinWidth }: ResourcePanelProps
                     >
                       {item.senderRole}
                     </span>
+                    {!pending && <span className="text-[11px] text-[var(--text-muted)]">{item.urgency}</span>}
                   </div>
                   <span
                     title={item.subject}
@@ -295,6 +320,16 @@ export function ResourcePanel({ project, onMeasureMinWidth }: ResourcePanelProps
                   >
                     {truncate18(item.subject)}
                   </span>
+                  {pending && <div role="status" aria-live="polite" className="flex flex-col gap-1.5 py-1">
+                    <span className="inline-flex items-center gap-1 text-[11px] text-[var(--text-muted)]"><IconLoader2 size={12} className="animate-spin" />{item.processingStage || 'Đang chờ phân tích'}</span>
+                    <div aria-hidden="true" className="h-2.5 w-40 max-w-full rounded bg-[var(--surface-control)] animate-pulse motion-reduce:animate-none" />
+                    <div aria-hidden="true" className="h-2.5 w-28 max-w-full rounded bg-[var(--surface-control)] animate-pulse motion-reduce:animate-none" />
+                  </div>}
+                  {item.processingStatus === 'error' && <span className="text-[11px] text-[var(--destroy-fg)]">Phân tích lỗi · mở Tóm tắt để thử lại</span>}
+                  <div className="flex flex-wrap gap-2 text-[11px]">
+                    {item.hasIssueToSolve && <button type="button" className="text-[var(--accent-ink)] cursor-pointer" onClick={() => setResourceToolbarTab(item.id, 'solution')}>Cần giải quyết</button>}
+                    {item.hasCalendarEvent && <button type="button" className="text-[var(--accent-ink)] cursor-pointer" onClick={() => setResourceToolbarTab(item.id, 'schedule')}>Có lịch hẹn</button>}
+                  </div>
                 </div>
               </div>
 
@@ -347,6 +382,7 @@ export function ResourcePanel({ project, onMeasureMinWidth }: ResourcePanelProps
         ref={fileInputRef}
         type="file"
         accept=".pdf,application/pdf"
+        disabled={isUploadingPdf}
         className="hidden"
         onChange={(e) => {
           const file = e.target.files?.[0];
@@ -377,11 +413,12 @@ export function ResourcePanel({ project, onMeasureMinWidth }: ResourcePanelProps
 
           <button
             type="button"
+            disabled={isUploadingPdf}
             onClick={() => fileInputRef.current?.click()}
             className="h-10 px-3 rounded-[8px] bg-[var(--surface)] text-[var(--text)] text-[14px] leading-[20px] font-semibold hover:bg-[var(--surface-card-hover)] transition-colors inline-flex items-center justify-center gap-2 whitespace-nowrap cursor-pointer"
           >
             <IconPaperclip size={17} stroke={1.75} />
-            <span>Tải lên</span>
+            <span>{isUploadingPdf ? 'Đang xử lý PDF...' : 'Tải lên'}</span>
           </button>
         </div>
 
@@ -519,9 +556,34 @@ export function ResourcePanel({ project, onMeasureMinWidth }: ResourcePanelProps
 
       <div className="h-px w-full bg-[var(--divider)] shrink-0" />
 
+      <div className="px-4 py-2 flex flex-wrap gap-2 text-[12px]">
+        <select aria-label="Lọc quan hệ người gửi" value={relationFilter} onChange={(e) => setRelationFilter(e.target.value)} className="bg-[var(--surface)] rounded p-1">
+          <option value="all">Mọi quan hệ</option><option value="nội bộ">Nội bộ</option><option value="khách">Khách</option>
+        </select>
+        <select aria-label="Lọc mức ưu tiên" value={urgencyFilter} onChange={(e) => setUrgencyFilter(e.target.value)} className="bg-[var(--surface)] rounded p-1">
+          <option value="all">Mọi mức ưu tiên</option>{['Khẩn cấp', 'Cao', 'Trung bình', 'Thấp'].map((value) => <option key={value}>{value}</option>)}
+        </select>
+        <label className="inline-flex items-center gap-1"><input type="checkbox" checked={sortUrgency} onChange={(e) => setSortUrgency(e.target.checked)} />Ưu tiên khẩn trước</label>
+      </div>
+      {(pendingMailRoutes[project.id] ?? []).length > 0 && (
+        <div className="px-4 py-2 space-y-2 text-[12px] bg-[var(--surface-control)]">
+          <p>Người gửi thuộc nhiều dự án. Chọn nơi lưu thư:</p>
+          {(pendingMailRoutes[project.id] ?? []).map((mail) => <div key={mail.messageId} className="flex items-center gap-2">
+            <span className="min-w-0 flex-1 truncate" title={mail.subject}>{mail.subject} · {mail.senderEmail}</span>
+            <button type="button" disabled={isSyncingMail} onClick={() => void routeMailToProject(project.id, mail.messageId)} className="shrink-0 font-semibold disabled:opacity-50 cursor-pointer">Đưa vào dự án này</button>
+          </div>)}
+        </div>
+      )}
       {/* content-right-tab.content (scroll enable) */}
       <div className="flex-1 min-h-0 scroll-area p-4">
-        {project.resources.length === 0 ? (
+        {isSyncingMail && <div role="status" className="flex flex-col gap-2 mb-3">
+          <p className="text-[12px] text-[var(--text-muted)]">Đang đồng bộ · thư đang chờ hiện xám, thư xử lý xong cập nhật ngay.</p>
+          {!project.resources.some((r) => r.type === 'mail' && (r.processingStatus === 'queued' || r.processingStatus === 'processing')) &&
+            [0, 1].map((index) => <div key={index} aria-hidden="true" className="rounded-[12px] bg-[var(--surface)] p-3 flex items-center gap-3 animate-pulse motion-reduce:animate-none">
+              <div className="size-8 rounded bg-[var(--surface-control)]" /><div className="flex-1 flex flex-col gap-2"><div className="h-3 w-2/3 rounded bg-[var(--surface-control)]" /><div className="h-2.5 w-1/2 rounded bg-[var(--surface-control)]" /></div>
+            </div>)}
+        </div>}
+        {project.resources.length === 0 ? (isSyncingMail ? null : (
           <div className="h-full min-h-[260px] flex flex-col items-center justify-center text-center gap-3 px-4">
             <p className="text-[16px] leading-[24px] font-semibold text-[var(--text)]">
               Chưa có tài nguyên nào
@@ -530,14 +592,9 @@ export function ResourcePanel({ project, onMeasureMinWidth }: ResourcePanelProps
               Nhấn <strong className="text-[var(--text)]">Đồng bộ</strong> để đọc email từ thư mục cấu hình hoặc{' '}
               <strong className="text-[var(--text)]">Tải lên</strong> tệp PDF vào dự án.
             </p>
-            <button
-              type="button"
-              onClick={() => uploadSampleOcrPdf(project.id)}
-              className="mt-1 px-3.5 py-2 rounded-[8px] bg-transparent border border-[var(--border)] text-[13px] leading-[18px] font-semibold text-[var(--text)] hover:border-[var(--border-hover)] transition-colors cursor-pointer"
-            >
-              Thử nạp tệp PDF scan mẫu (OCR)
-            </button>
-          </div>
+          </div>)
+        ) : sortedResources.length === 0 ? (
+          <p className="p-4 text-[13px] text-[var(--text-muted)]">Không có tài nguyên khớp bộ lọc.</p>
         ) : resourceViewMode === 'default' ? (
           <div className="flex flex-col gap-2">
             {sortedResources.map(renderResourceWrapper)}
@@ -589,7 +646,7 @@ export function ResourcePanel({ project, onMeasureMinWidth }: ResourcePanelProps
                     : 'bg-transparent text-[var(--text-muted)] hover:text-[var(--text)]'
                 }`}
               >
-                Email ({mailResources.length})
+                Email
               </button>
               <button
                 type="button"

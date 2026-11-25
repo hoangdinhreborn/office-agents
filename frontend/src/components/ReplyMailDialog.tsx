@@ -1,5 +1,4 @@
 import {
-  IconAlertTriangle,
   IconCheck,
   IconFile,
   IconFileTypePdf,
@@ -25,6 +24,7 @@ import type {
   ResourceItem,
   SolutionOption,
 } from '../types/workspace';
+import * as emailReplyApi from '../lib/email-reply-api';
 import { formatBytesVi, memberEmailSchema } from '../utils/format';
 
 interface ReplyMailDialogProps {
@@ -44,21 +44,10 @@ interface SuggestedSlot {
   dismissed?: boolean;
 }
 
-function stripMarkdown(md: string): string {
-  return md
-    .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
-    .replace(/\*\*([^*]+)\*\*/g, '$1')
-    .replace(/\*([^*]+)\*/g, '$1')
-    .replace(/`([^`]+)`/g, '$1')
-    .replace(/^#{1,6}\s+/gm, '')
-    .replace(/^[-*]\s+/gm, '- ')
-    .trim();
-}
-
 function inferSuggestedSlots(resource: ResourceItem, solution: SolutionOption): SuggestedSlot[] {
   const combined = [
     resource.type === 'mail' ? resource.subject : resource.fileName,
-    resource.summaryByStyle['ngắn'],
+    resource.summaryMarkdown,
     solution.titleMarkdown,
   ]
     .join(' ')
@@ -145,31 +134,6 @@ function buildAttachmentBlock(
   return lines.join('\n');
 }
 
-function buildInitialDraftBody(params: {
-  currentUser: { name: string; role: string; email: string };
-  resource: ResourceItem;
-  solution: SolutionOption;
-  isExternal: boolean;
-  files: ReplyAttachmentFile[];
-  links: ReplyAttachmentLink[];
-}): string {
-  const { resource, solution, isExternal, files, links, currentUser } = params;
-  const solutionPlain = stripMarkdown(solution.titleMarkdown);
-  const greeting = isExternal ? 'Kính gửi Anh/Chị,' : 'Chào mọi người,';
-  const intro =
-    resource.type === 'mail'
-      ? `Cảm ơn Anh/Chị đã gửi trao đổi về "${resource.subject}". Sau khi rà soát nội dung và các tài liệu liên quan, phía em đề xuất phương án xử lý như sau:`
-      : `Gửi Anh/Chị đề xuất xử lý dựa trên tài liệu "${resource.fileName}":`;
-
-  const closing = isExternal
-    ? `Rất mong nhận được phản hồi của Anh/Chị để hai bên sớm thống nhất triển khai.\n\nTrân trọng,\n${currentUser.name}\n${currentUser.role}`
-    : `Mọi người xem qua và phản hồi nếu cần điều chỉnh thêm nhé.\n\nCảm ơn mọi người,\n${currentUser.name}`;
-
-  const attachmentBlock = buildAttachmentBlock(files, links);
-
-  return [greeting, intro, solutionPlain, attachmentBlock, closing].filter(Boolean).join('\n\n');
-}
-
 function syncAttachmentBlockInBody(
   currentBody: string,
   files: ReplyAttachmentFile[],
@@ -228,8 +192,8 @@ export function ReplyMailDialog({
   solution,
   solutionIndex,
 }: ReplyMailDialogProps) {
-  const currentUser = useWorkspaceStore((s) => s.currentUser);
   const sendSolutionReplyMail = useWorkspaceStore((s) => s.sendSolutionReplyMail);
+  const selectedModelId = useWorkspaceStore((s) => s.selectedModelId);
 
   const [toEmails, setToEmails] = useState<string[]>([]);
   const [ccEmails, setCcEmails] = useState<string[]>([]);
@@ -260,6 +224,13 @@ export function ReplyMailDialog({
 
   const [formError, setFormError] = useState<string | null>(null);
   const [isSending, setIsSending] = useState(false);
+  const [isDrafting, setIsDrafting] = useState(false);
+  const [draftNote, setDraftNote] = useState<string | null>(null);
+  const [historyReady, setHistoryReady] = useState(false);
+  const [pendingSendId, setPendingSendId] = useState<string | null>(null);
+  const draftRequestRef = useRef(0);
+  const requestIdRef = useRef('');
+  const sendingRef = useRef(false);
 
   const fileUploadInputRef = useRef<HTMLInputElement>(null);
   const recipientContainerRef = useRef<HTMLDivElement>(null);
@@ -287,11 +258,6 @@ export function ReplyMailDialog({
     if (!open) return;
 
     const initialTo = resource.type === 'mail' ? [resource.senderEmail] : [];
-    const initialIsExternal =
-      resource.type === 'mail'
-        ? resource.senderRole === 'khách'
-        : initialTo.some((e) => getEmailRole(e) === 'khách');
-
     const initialSubject =
       resource.type === 'mail'
         ? resource.subject.toLowerCase().startsWith('re:')
@@ -323,18 +289,15 @@ export function ReplyMailDialog({
     setFormError(null);
     setIsSending(false);
 
-    setBody(
-      buildInitialDraftBody({
-        currentUser,
-        resource,
-        solution,
-        isExternal: initialIsExternal,
-        files: [],
-        links: [],
-      })
-    );
+    setBody('');
+    setDraftNote(null);
+    setPendingSendId(null);
+    setHistoryReady(false);
+    requestIdRef.current = crypto.randomUUID();
+    void requestDraft(initialTo.filter(Boolean), [], [], []);
+    return () => { draftRequestRef.current += 1; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, resource.id, solution.id]);
+  }, [open, project.id, resource.id, solution.id]);
 
   useEffect(() => {
     if (!open) return;
@@ -382,11 +345,7 @@ export function ReplyMailDialog({
     [suggestedSlots]
   );
 
-  const hasExternalRecipient = useMemo(
-    () => [...toEmails, ...ccEmails].some((e) => getEmailRole(e) === 'khách'),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [toEmails, ccEmails, memberRoleMap]
-  );
+
 
   const addRecipientEmail = (rawEmail: string, target: 'to' | 'cc' = activeRecipientField) => {
     const parsed = memberEmailSchema.safeParse(rawEmail);
@@ -430,9 +389,15 @@ export function ReplyMailDialog({
       name: f.name,
       sizeLabel: formatBytesVi(f.size),
       source: 'upload',
+      file: f,
+      sizeBytes: f.size,
     }));
 
     const nextFiles = [...files, ...additions];
+    if (nextFiles.length > 20 || nextFiles.reduce((sum, file) => sum + (file.sizeBytes || 0), 0) > emailReplyApi.MAX_REPLY_ATTACHMENT_BYTES) {
+      setFormError('Tối đa 20 tệp, tổng dung lượng không quá 18 MiB.'); return;
+    }
+    setFormError(null);
     setFiles(nextFiles);
     setBody((prev) => syncAttachmentBlockInBody(prev, nextFiles, links));
     if (activeFileSlotId) {
@@ -451,10 +416,15 @@ export function ReplyMailDialog({
             id: `file-res-${pdf.id}`,
             name: pdf.fileName,
             sizeLabel: pdf.fileSize,
+            sizeBytes: pdf.sizeBytes,
             source: 'resource' as const,
             resourceId: pdf.id,
           },
         ];
+    if (nextFiles.length > 20 || nextFiles.reduce((sum, file) => sum + (file.sizeBytes || 0), 0) > emailReplyApi.MAX_REPLY_ATTACHMENT_BYTES) {
+      setFormError('Tối đa 20 tệp, tổng dung lượng không quá 18 MiB.'); return;
+    }
+    setFormError(null);
     setFiles(nextFiles);
     setBody((prev) => syncAttachmentBlockInBody(prev, nextFiles, links));
     if (!already && activeFileSlotId) {
@@ -510,40 +480,66 @@ export function ReplyMailDialog({
     setBody((prev) => syncAttachmentBlockInBody(prev, files, nextLinks));
   };
 
-  const handleRegenerateBody = () => {
-    setBody(
-      buildInitialDraftBody({
-        currentUser,
-        resource,
-        solution,
-        isExternal: hasExternalRecipient,
-        files,
-        links,
-      })
-    );
-  };
+  async function requestDraft(recipients: string[], cc: string[], attachments: ReplyAttachmentFile[], linkItems: ReplyAttachmentLink[], forceDraft = false) {
+    const version = ++draftRequestRef.current;
+    setIsDrafting(true);
+    setDraftNote(null);
+    setFormError(null);
+    try {
+      const attempts = await emailReplyApi.loadReplySends(project.id, resource.id);
+      if (version !== draftRequestRef.current) return;
+      setHistoryReady(true);
+      const pending = attempts.find((item) => item.status === 'sending' || item.status === 'uncertain');
+      if (pending) {
+        setPendingSendId(pending.id);
+        setToEmails(pending.toEmails); setCcEmails(pending.ccEmails); setShowCc(pending.ccEmails.length > 0);
+        setSubject(pending.subject); setBody(pending.body); setFiles(pending.files); setLinks(pending.links);
+        setFormError(pending.error || 'Có lượt gửi trước chưa được xác nhận. Kiểm tra kết quả trước khi soạn thư mới.');
+        return;
+      }
+      const draft = await emailReplyApi.draftReply(project.id, resource.id, solution.id, recipients, cc, attachments, linkItems, selectedModelId, forceDraft);
+      if (version !== draftRequestRef.current) return;
+      setSubject(draft.subject); setBody(draft.body);
+      setDraftNote(draft.should_reply ? null : draft.note || 'Phương án này là việc nội bộ, không cần phản hồi người gửi. Bạn vẫn có thể tự soạn thư nếu muốn.');
+    } catch (error) {
+      if (version === draftRequestRef.current) setFormError(
+        error instanceof DOMException && ['TimeoutError', 'AbortError'].includes(error.name)
+          ? 'Quá thời gian chờ soạn nháp hoặc kiểm tra lịch sử gửi. Nội dung hiện tại được giữ nguyên; hãy thử lại.'
+          : error instanceof Error ? error.message : 'Chưa soạn được nháp.');
+    } finally {
+      if (version === draftRequestRef.current) setIsDrafting(false);
+    }
+  }
+
+  const handleRegenerateBody = () => { void requestDraft(toEmails, ccEmails, files, links, true); };
 
   const handleSubmitSend = async () => {
+    if (sendingRef.current || isDrafting || !historyReady) return;
+    if (!pendingSendId) {
+      if (recipientInput.trim()) { setFormError('Nhấn Enter để thêm địa chỉ đang nhập vào To/CC trước khi gửi.'); return; }
+      if (!toEmails.length || [...toEmails, ...ccEmails].some((email) => !memberEmailSchema.safeParse(email).success)) {
+        setFormError('Cần ít nhất một người nhận To hợp lệ.'); return;
+      }
+      if (!subject.trim() || /[\r\n]/.test(subject) || !body.trim()) { setFormError('Nhập tiêu đề và nội dung email hợp lệ trước khi gửi.'); return; }
+      if (links.some((link) => !body.includes(link.url))) { setFormError('Có liên kết đã chọn chưa có trong nội dung. Gắn lại hoặc gỡ liên kết trước khi gửi.'); return; }
+    }
+    sendingRef.current = true;
     setFormError(null);
     setIsSending(true);
-    const result = await sendSolutionReplyMail({
-      projectId: project.id,
-      resourceId: resource.id,
-      solutionId: solution.id,
-      toEmails,
-      ccEmails,
-      subject,
-      body,
-      files,
-      links,
-      saveNewEmailsToProject,
-    });
-    setIsSending(false);
-    if (!result.ok) {
-      setFormError(result.error ?? 'Không thể gửi email.');
-      return;
-    }
-    onClose();
+    try {
+      const result = await sendSolutionReplyMail({
+        requestId: requestIdRef.current, pendingSendId: pendingSendId || undefined,
+        projectId: project.id, resourceId: resource.id, solutionId: solution.id,
+        toEmails, ccEmails, subject, body, files, links, saveNewEmailsToProject,
+      });
+      if (!result.ok) {
+        setFormError(result.error || 'Không thể xác nhận gửi email.');
+        if (result.sendId && (result.status === 'uncertain' || result.status === 'sending')) setPendingSendId(result.sendId);
+        else if (result.status === 'failed') { setPendingSendId(null); requestIdRef.current = crypto.randomUUID(); }
+        return;
+      }
+      onClose();
+    } finally { sendingRef.current = false; setIsSending(false); }
   };
 
   if (!open) return null;
@@ -607,7 +603,7 @@ export function ReplyMailDialog({
         <div className="h-px w-full bg-[var(--divider)] shrink-0" />
 
         {/* Body */}
-        <div className="p-6 scroll-area flex-1 flex flex-col gap-4">
+        <fieldset disabled={isSending || isDrafting || Boolean(pendingSendId)} className="p-6 scroll-area flex-1 min-w-0 flex flex-col gap-4">
           {/* 1. Recipients: To / CC (pick from project.members or add new email) */}
           <div ref={recipientContainerRef} className="flex flex-col gap-2">
             <div className="flex items-center justify-between gap-2">
@@ -1116,7 +1112,7 @@ export function ReplyMailDialog({
                 htmlFor="reply-body-textarea"
                 className="text-[13px] leading-[18px] font-semibold text-[var(--text)]"
               >
-                Nội dung email (AI soạn nháp theo giải pháp đã chọn)
+                Nội dung email
               </label>
               <button
                 type="button"
@@ -1124,39 +1120,30 @@ export function ReplyMailDialog({
                 className="inline-flex items-center gap-1 text-[12px] font-semibold text-[var(--accent-ink)] hover:underline cursor-pointer"
               >
                 <IconRefresh size={13} stroke={2} />
-                <span>Soạn lại theo đính kèm</span>
+                <span>{draftNote ? 'Vẫn soạn nháp' : body.trim() ? 'Soạn lại' : 'Soạn nháp'}</span>
               </button>
             </div>
+            {draftNote && <p role="status" className="text-[13px] text-[var(--text-muted)]">{draftNote}</p>}
+            {isDrafting && <div role="status" className="flex flex-col gap-2 py-2">
+              <span className="text-[12px] text-[var(--text-muted)]">{historyReady ? 'Đang soạn nội dung theo phương án đã chọn…' : 'Đang kiểm tra trạng thái gửi trước đó…'}</span>
+              {[100, 85, 65].map((width) => <div key={width} className="h-3 rounded bg-[var(--surface-control)] animate-pulse motion-reduce:animate-none" style={{ width: `${width}%` }} />)}
+            </div>}
             <textarea
               id="reply-body-textarea"
-              rows={7}
+              rows={9}
+              placeholder={draftNote ? 'Có thể bấm Vẫn soạn nháp hoặc nhập nội dung tại đây.' : formError ? 'Chưa soạn được nháp. Xem lỗi bên dưới hoặc nhập nội dung tại đây.' : 'Nội dung email sẽ hiện ở đây…'}
               value={body}
               onChange={(e) => setBody(e.target.value)}
               className="w-full p-3 rounded-[10px] bg-transparent border border-[var(--border)] text-[14px] leading-[22px] text-[var(--text)] placeholder:text-[var(--text-muted)] hover:border-[var(--border-hover)] resize-y min-h-[150px]"
             />
           </div>
 
-          {/* Pre-send Guardrails (non-blocking warnings & blocking errors) */}
-          {links.length > 0 && hasExternalRecipient && (
-            <div className="rounded-[10px] bg-[var(--warning-bg)] text-[var(--warning-fg)] px-3.5 py-2.5 flex items-start gap-2 text-[12px] leading-[18px]">
-              <IconAlertTriangle
-                size={16}
-                stroke={2}
-                className="text-[var(--warning-icon)] shrink-0 mt-0.5"
-              />
-              <span>
-                Đang đính kèm {links.length} liên kết gửi cho đối tác/khách — hãy đảm bảo liên kết
-                đã mở quyền xem cho người nhận.
-              </span>
-            </div>
-          )}
-
           {formError && (
-            <div className="rounded-[10px] bg-[var(--destroy-bg)] text-[var(--destroy-fg)] px-3.5 py-2.5 text-[13px] font-semibold">
+            <div role="alert" className="rounded-[10px] bg-[var(--destroy-bg)] text-[var(--destroy-fg)] px-3.5 py-2.5 text-[13px] font-semibold">
               {formError}
             </div>
           )}
-        </div>
+        </fieldset>
 
         <div className="h-px w-full bg-[var(--divider)] shrink-0" />
 
@@ -1164,7 +1151,7 @@ export function ReplyMailDialog({
         <div className="flex items-center justify-between gap-3 px-6 py-4 shrink-0">
           <span className="text-[12px] leading-[16px] text-[var(--text-muted)] tabular-nums">
             {toEmails.length + ccEmails.length} người nhận · {files.length} tệp · {links.length}{' '}
-            liên kết
+            liên kết · tối đa 18 MiB
           </span>
 
           <div className="flex items-center gap-2.5">
@@ -1178,7 +1165,7 @@ export function ReplyMailDialog({
             </button>
             <button
               type="button"
-              disabled={isSending}
+              disabled={isSending || isDrafting || !historyReady || (!pendingSendId && (!body.trim() || !subject.trim() || !toEmails.length))}
               onClick={handleSubmitSend}
               className="h-9 px-5 rounded-[8px] bg-[#FCA311] text-[#14213D] hover:bg-[var(--accent-hover)] disabled:opacity-60 text-[14px] font-semibold inline-flex items-center gap-1.5 transition-colors cursor-pointer"
             >
@@ -1187,7 +1174,7 @@ export function ReplyMailDialog({
               ) : (
                 <IconSend size={15} stroke={2} />
               )}
-              <span>{isSending ? 'Đang gửi...' : 'Gửi email'}</span>
+              <span>{isSending ? (pendingSendId ? 'Đang kiểm tra…' : 'Đang gửi…') : pendingSendId ? 'Kiểm tra kết quả' : 'Duyệt và gửi email'}</span>
             </button>
           </div>
         </div>

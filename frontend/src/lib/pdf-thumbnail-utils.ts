@@ -1,13 +1,7 @@
 import type { PdfDocumentObject, PdfEngine } from "@embedpdf/models"
 
-const PDFIUM_VERSION = "2.15.0"
-const PDFIUM_FALLBACK_WASM_URL = `https://cdn.jsdelivr.net/npm/@embedpdf/pdfium@${PDFIUM_VERSION}/dist/pdfium.wasm`
-
 function getPdfiumWasmUrl() {
-  if (typeof window !== "undefined") {
-    return new URL("/assets/pdfium.wasm", window.location.href).href
-  }
-  return PDFIUM_FALLBACK_WASM_URL
+  return new URL(`${import.meta.env.BASE_URL}assets/pdfium.wasm`, window.location.href).href
 }
 
 let sharedEnginePromise: Promise<PdfEngine> | null = null
@@ -24,9 +18,16 @@ export function getPdfSourceUrl(src: string) {
 }
 
 export function loadSharedPdfEngine() {
-  sharedEnginePromise ??= import("@embedpdf/engines/pdfium-worker-engine").then(
-    ({ createPdfiumEngine }) => createPdfiumEngine(getPdfiumWasmUrl(), {})
-  )
+  sharedEnginePromise ??= new Promise<PdfEngine>((resolve, reject) => {
+    const timer = window.setTimeout(() => reject(new Error("Bộ đọc PDF không khởi động được sau 45 giây. Hãy tải lại trang hoặc mở PDF gốc.")), 45_000)
+    import("@embedpdf/engines/pdfium-worker-engine")
+      .then(({ createPdfiumEngine }) => createPdfiumEngine(getPdfiumWasmUrl(), {}))
+      .then(resolve, reject)
+      .finally(() => window.clearTimeout(timer))
+  }).catch((error) => {
+    sharedEnginePromise = null
+    throw error
+  })
 
   return sharedEnginePromise
 }

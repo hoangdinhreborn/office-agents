@@ -3,6 +3,7 @@
 import * as React from "react"
 import { createPluginRegistration, refreshPages } from "@embedpdf/core"
 import { EmbedPDF, useRegistry } from "@embedpdf/core/react"
+import { PdfErrorCode } from "@embedpdf/models"
 import type {
   PdfDocumentObject,
   PdfEngine,
@@ -110,7 +111,10 @@ export type PDFViewerPageOverlayProps = {
   scale: number
   rotation: number
 }
+export type CitationFocusResult = "matched" | "not-found" | "ambiguous" | "error"
 export type PDFViewerHandle = {
+  focusCitation: (pageNumber: number, quote: string) => Promise<CitationFocusResult>
+  clearCitation: () => void
   scrollToPage: (pageNumber: number, options?: ScrollIntoViewOptions) => void
   scrollToPageArea: (
     pageNumber: number,
@@ -2021,6 +2025,7 @@ function PDFViewerScroller({
   )
 }
 type PDFViewerInnerProps = {
+  engine: PdfEngine
   viewerRef: React.ForwardedRef<PDFViewerHandle>
   pdfFile: string
   documentId: string
@@ -2046,6 +2051,7 @@ type PDFViewerInnerProps = {
   onUploadFile: (file: File) => void
 }
 function PDFViewerInner({
+  engine,
   viewerRef,
   pdfFile,
   documentId,
@@ -2072,6 +2078,28 @@ function PDFViewerInner({
 }: PDFViewerInnerProps) {
   const viewerTheme = React.useContext(PDFViewerThemeContext)
   const { registry } = useRegistry()
+  // Citation lookup is independent of the user's toolbar search. Coordinates come
+  // from the same PDF engine as the rendered page, including its native rotation.
+  const citationRequestRef = React.useRef(0)
+  const cancelCitationRef = React.useRef<(() => void) | null>(null)
+  const [citationHit, setCitationHit] = React.useState<{
+    pageNumber: number
+    rects: Rect[]
+  } | null>(null)
+  const clearCitation = React.useCallback(() => {
+    citationRequestRef.current += 1
+    cancelCitationRef.current?.()
+    cancelCitationRef.current = null
+    setCitationHit(null)
+  }, [])
+  React.useEffect(() => {
+    clearCitation()
+    return () => {
+      citationRequestRef.current += 1
+      cancelCitationRef.current?.()
+      cancelCitationRef.current = null
+    }
+  }, [documentId, clearCitation])
   const { state: scrollState, provides: scroll } = useScroll(documentId)
   const { state: zoomState, provides: zoom } = useZoom(documentId)
   const { provides: thumbnails } = useThumbnailCapability()
@@ -2210,9 +2238,42 @@ function PDFViewerInner({
     },
     [activePage, numPages, scrollToPage]
   )
+  const focusCitation = React.useCallback(async (
+    pageNumber: number, quote: string
+  ): Promise<CitationFocusResult> => {
+    clearCitation()
+    const requestId = citationRequestRef.current
+    const query = quote.trim().replace(/\s+/g, " ")
+    if (!pdfDocument || query.length < 8 || query.length > 500 || !Number.isInteger(pageNumber) ||
+        pageNumber < 1 || pageNumber > pdfDocument.pageCount) return "not-found"
+    try {
+      const task = engine.searchAllPages(pdfDocument, query)
+      cancelCitationRef.current = () => task.abort({ code: PdfErrorCode.Cancelled, message: "Citation changed" })
+      const result = await task.toPromise()
+      if (requestId !== citationRequestRef.current) return "not-found"
+      cancelCitationRef.current = null
+      const matches = result.results.filter((hit) => hit.pageIndex === pageNumber - 1 && hit.rects.length)
+      // A repeated phrase cannot identify which passage supports the claim.
+      if (matches.length > 1) return "ambiguous"
+      if (!matches.length) return "not-found"
+      const rects = matches[0].rects
+      setCitationHit({ pageNumber, rects })
+      scroll?.scrollToPage({
+        pageNumber,
+        pageCoordinates: { x: rects[0].origin.x, y: rects[0].origin.y },
+        alignY: 30,
+        behavior: "smooth",
+      })
+      return "matched"
+    } catch {
+      return "error"
+    }
+  }, [engine, pdfDocument, scroll, clearCitation])
   React.useImperativeHandle(
     viewerRef,
     () => ({
+      focusCitation,
+      clearCitation,
       scrollToPage,
       scrollToPageArea: (pageNumber, area, options) => {
         const pageSize = pdfDocument?.pages[pageNumber - 1]?.size
@@ -2232,7 +2293,7 @@ function PDFViewerInner({
       },
       getViewportElement: () => viewportElementRef.current,
     }),
-    [pdfDocument, scroll, scrollToPage]
+    [pdfDocument, scroll, scrollToPage, focusCitation, clearCitation]
   )
   const handleDownload = React.useCallback(async () => {
     if (!pdfFile || isPreparingDownload) return
@@ -2413,6 +2474,19 @@ function PDFViewerInner({
               highlightColor="rgba(253, 224, 71, 0.45)"
               activeHighlightColor="rgba(249, 115, 22, 0.55)"
             />
+            {citationHit?.pageNumber === pageNumber && citationHit.rects.map((rect, index) => (
+              <div
+                key={`citation-${index}`}
+                aria-label="Đoạn nguồn được trích dẫn"
+                className="pointer-events-none absolute z-20 rounded-sm bg-amber-400/35 ring-1 ring-amber-500/60"
+                style={{
+                  top: rect.origin.y * currentZoomLevel,
+                  left: rect.origin.x * currentZoomLevel,
+                  width: rect.size.width * currentZoomLevel,
+                  height: rect.size.height * currentZoomLevel,
+                }}
+              />
+            ))}
             <PDFViewerTextSelectionLayer
               documentId={documentId}
               pageIndex={page.pageIndex}
@@ -2431,6 +2505,7 @@ function PDFViewerInner({
     },
     [
       basePageRotations,
+      citationHit,
       currentZoomLevel,
       onPagePointerCancel,
       onPagePointerDown,
@@ -2571,6 +2646,7 @@ function PDFViewerDocumentLoader({
       })
       .wait((response) => {
         response.task.wait((openedDocument) => {
+          if (openedFileRef.current === pdfFile) setLoadError(false)
           onDocumentLoadSuccessRef.current?.(openedDocument.pageCount)
           previousDocumentIds.forEach((documentIdToClose) => {
             documentManager.closeDocument(documentIdToClose).wait(
@@ -2584,11 +2660,17 @@ function PDFViewerDocumentLoader({
   const document =
     activeDocument?.status === "loaded" ? activeDocument.document : null
   const documentFailed = loadError || activeDocument?.status === "error"
+  React.useEffect(() => {
+    if (!pdfFile || document || documentFailed) return
+    const timer = window.setTimeout(() => setLoadError(true), 45_000)
+    return () => window.clearTimeout(timer)
+  }, [pdfFile, document, documentFailed])
   if (!activeDocumentId || documentFailed || !pdfFile) {
     return (
       <PDFViewerFallbackShell
         className={innerProps.className}
         defaultZoom={innerProps.defaultZoom}
+        errorMessage="Không tải được PDF. Bạn có thể bấm Mở PDF gốc phía trên hoặc tải lại trang để thử lại."
         showDownload={innerProps.showDownload}
         showRotateControls={innerProps.showRotateControls}
         showThemeToggle={innerProps.showThemeToggle}
@@ -2773,6 +2855,7 @@ export const PDFViewer = React.forwardRef<PDFViewerHandle, PDFViewerProps>(
         >
           <EmbedPDF engine={engine} plugins={plugins}>
             <PDFViewerDocumentLoader
+              engine={engine}
               viewerRef={ref}
               pdfFile={pdfFile}
               defaultZoom={defaultZoom}

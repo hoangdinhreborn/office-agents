@@ -17,41 +17,65 @@ export interface ExtractedCitation {
   rawLabel: string;
   page: number;
   pdf: PdfResource;
+  quote?: string;
 }
 
-const CITATION_REGEX = /`?\[tr\.\s*(\d+)(?:\s*[–-]\s*(\d+))?\]`?/gi;
+const CITATION_REGEX = /`?\[(?:([^\]\n|]+?)\s*\|\s*)?tr\.\s*(\d+(?:\s*[–—-]\s*\d+)?(?:\s*[,;]\s*\d+(?:\s*[–—-]\s*\d+)?)*)\s*(?:\|\s*("(?:\\.|[^"\\\n])*"))?\s*\]`?/gi;
+
+// encodeURIComponent leaves parentheses unescaped; source code often contains
+// them, and an unmatched ')' would otherwise terminate a Markdown link early.
+function citationComponent(value: string): string {
+  return encodeURIComponent(value).replace(/[!'()*]/g, (char) => `%${char.charCodeAt(0).toString(16)}`);
+}
+
+function citationQuote(encoded?: string): string | undefined {
+  if (!encoded) return undefined;
+  try {
+    const value: unknown = JSON.parse(encoded);
+    return typeof value === 'string' && value.trim().length >= 8 && value.length <= 500
+      ? value.trim() : undefined;
+  } catch { return undefined; }
+}
+
+export function citationPages(spec: string): number[] {
+  const pages = new Set<number>();
+  for (const part of spec.split(/[,;]/)) {
+    const match = part.trim().match(/^(\d+)(?:\s*[–—-]\s*(\d+))?$/);
+    if (!match) return [];
+    const start = Number(match[1]), end = Number(match[2] || match[1]);
+    if (start < 1 || end < start || end > 1000) return [];
+    for (let page = start; page <= end; page++) pages.add(page);
+  }
+  return [...pages];
+}
 
 export function findPdfForCitation(
   project: Project,
   page: number,
   targetResourceId?: string,
-  referencedSourceNames?: string[]
+  referencedSourceNames?: string[],
+  sourceName?: string
 ): PdfResource | null {
-  const pdfs = project.resources.filter((r): r is PdfResource => r.type === 'pdf');
-  if (pdfs.length === 0) return null;
+  const pdfs = project.resources.flatMap((resource): PdfResource[] => {
+    if (resource.type === 'pdf') return [resource];
+    return resource.attachedPdfs || [];
+  });
+  const validPage = (pdf: PdfResource) => Boolean(pdf.fileUrl) &&
+    Number.isInteger(page) && page >= 1 && page <= pdf.pageCount;
 
+  let candidates: PdfResource[];
   if (targetResourceId) {
-    const exact = pdfs.find((p) => p.id === targetResourceId);
-    if (exact) return exact;
+    const resource = project.resources.find((item) => item.id === targetResourceId);
+    candidates = resource?.type === 'pdf' ? [resource] : resource?.attachedPdfs || pdfs.filter((pdf) => pdf.id === targetResourceId);
+  } else {
+    candidates = referencedSourceNames?.length
+      ? pdfs.filter((pdf) => referencedSourceNames.includes(pdf.fileName))
+      : project.resources.filter((item) => item.selected).flatMap((resource): PdfResource[] =>
+          resource.type === 'pdf' ? [resource] : resource.attachedPdfs || []);
   }
-
-  if (referencedSourceNames && referencedSourceNames.length > 0) {
-    const refMatch = pdfs.find(
-      (p) =>
-        referencedSourceNames.includes(p.fileName) &&
-        (p.pages?.some((pg) => pg.pageNumber === page) || page <= p.pageCount)
-    );
-    if (refMatch) return refMatch;
-
-    const firstRefPdf = pdfs.find((p) => referencedSourceNames.includes(p.fileName));
-    if (firstRefPdf) return firstRefPdf;
-  }
-
-  const pageMatch = pdfs.find((p) => p.pages?.some((pg) => pg.pageNumber === page));
-  if (pageMatch) return pageMatch;
-
-  const selectedPdf = pdfs.find((p) => p.selected);
-  return selectedPdf ?? pdfs[0];
+  if (sourceName) candidates = candidates.filter((pdf) => pdf.fileName === sourceName.trim());
+  // A bare page citation or duplicate filename cannot reliably select one of several PDFs.
+  return candidates.length === 1 && validPage(candidates[0]) ? candidates[0] : null;
 }
 
 export function extractCitationEntries(
@@ -65,30 +89,34 @@ export function extractCitationEntries(
   let match: RegExpExecArray | null;
 
   while ((match = regex.exec(content)) !== null) {
-    const startPage = Number(match[1]);
-    const endPage = match[2] ? Number(match[2]) : null;
-    const rawLabel = endPage ? `tr. ${startPage}–${endPage}` : `tr. ${startPage}`;
-    const pdf = findPdfForCitation(project, startPage, undefined, referencedSourceNames);
-    if (!pdf) continue;
-
-    const dedupeKey = `${pdf.id}:${rawLabel}`;
-    if (seen.has(dedupeKey)) continue;
-    seen.add(dedupeKey);
-    results.push({ rawLabel, page: startPage, pdf });
+    const sourceName = match[1]?.trim();
+    for (const page of citationPages(match[2])) {
+      const rawLabel = sourceName ? `${sourceName} | tr. ${page}` : `tr. ${page}`;
+      const pdf = findPdfForCitation(project, page, undefined, referencedSourceNames, sourceName);
+      if (!pdf) continue;
+      const quote = citationQuote(match[3]);
+      const dedupeKey = `${pdf.id}:${page}:${quote || ""}`;
+      if (seen.has(dedupeKey)) continue;
+      seen.add(dedupeKey);
+      results.push({ rawLabel, page, pdf, quote });
+    }
   }
 
   return results;
 }
 
 /**
- * Replaces `[tr. 14]` or `` `[tr. 14]` `` with custom markdown links `#cite-<page>-<label>`
- * so ReactMarkdown renders them inline as clickable filled citation buttons.
+ * Render compact citation chips while preserving the source quote in the target.
+ * Legacy page lists and ranges remain readable without guessing a passage.
  */
 function preprocessCitations(markdown: string): string {
-  return markdown.replace(CITATION_REGEX, (_full, startStr: string, endStr?: string) => {
-    const label = endStr ? `tr. ${startStr}–${endStr}` : `tr. ${startStr}`;
-    const encodedLabel = encodeURIComponent(label);
-    return `[${label}](#cite:${startStr}:${encodedLabel})`;
+  return markdown.replace(CITATION_REGEX, (full, sourceName: string | undefined, spec: string, encodedQuote: string | undefined) => {
+    const pages = citationPages(spec);
+    if (!pages.length) return full;
+    return pages.map((page) => {
+      const label = sourceName ? `${sourceName.trim()} | tr. ${page}` : `tr. ${page}`;
+      return `[${label}](#cite:${page}:${citationComponent(label)}:${citationComponent(sourceName?.trim() || '')}:${citationComponent(citationQuote(encodedQuote) || '')})`;
+    }).join(' ');
   });
 }
 
@@ -111,20 +139,30 @@ export function CitationMarkdown({
         components={{
           a: ({ href, children, ...rest }) => {
             if (href && href.startsWith('#cite:')) {
-              const [, pagePart, encodedLabel] = href.split(':');
-              const pageNum = Number(pagePart) || 1;
-              const label = encodedLabel ? decodeURIComponent(encodedLabel) : `tr. ${pageNum}`;
+              const [, pagePart, encodedLabel, encodedSource, encodedQuote] = href.split(':');
+              const pageNum = Number(pagePart);
+              let label: string, sourceName: string | undefined, quote: string | undefined;
+              try {
+                label = encodedLabel ? decodeURIComponent(encodedLabel) : `tr. ${pageNum}`;
+                sourceName = encodedSource ? decodeURIComponent(encodedSource) : undefined;
+                quote = encodedQuote ? decodeURIComponent(encodedQuote) : undefined;
+              } catch { return <span>{children}</span>; }
               const targetPdf = findPdfForCitation(
                 project,
                 pageNum,
                 targetResourceId,
-                referencedSourceNames
+                referencedSourceNames,
+                sourceName
               );
+
+              const rangeEnd = Number(label.match(/[–-]\s*(\d+)$/)?.[1] ?? pageNum);
+              if (!targetPdf || rangeEnd < pageNum || rangeEnd > targetPdf.pageCount) return <span title="Trích dẫn chưa xác định được nguồn hoặc trang hợp lệ">{children}</span>;
 
               const isCurrentlyFocused =
                 Boolean(targetPdf) &&
                 pdfViewer?.resourceId === targetPdf?.id &&
-                pdfViewer?.targetPage === pageNum;
+                pdfViewer?.targetPage === pageNum &&
+                pdfViewer?.citationQuote === quote;
 
               return (
                 <button
@@ -141,6 +179,7 @@ export function CitationMarkdown({
                       openPdfViewer(project.id, targetPdf.id, {
                         page: pageNum,
                         citationLabel: label,
+                        citationQuote: quote,
                       });
                     }
                   }}

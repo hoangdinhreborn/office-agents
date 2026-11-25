@@ -23,7 +23,8 @@ import remarkGfm from 'remark-gfm';
 import { resolvePdfCitationTarget } from '../data/mockPdfDocuments';
 import { buildMailOverviewReport, MAIL_OVERVIEW_REPORT_ID } from '../lib/mailOverviewReport';
 import { useWorkspaceStore } from '../store/useWorkspaceStore';
-import type { ModelItem, Project } from '../types/workspace';
+import type { CalendarDraftItem, ModelItem, Project } from '../types/workspace';
+import { CalendarDraftDialog } from './CalendarDraftForm';
 import {
   CitationMarkdown,
   extractCitationEntries,
@@ -57,11 +58,20 @@ export function ChatPanel({ project, onMeasureMinWidth }: ChatPanelProps) {
   const [inputValue, setInputValue] = useState('');
   const [undoStack, setUndoStack] = useState<string[]>(['']);
   const [historyIndex, setHistoryIndex] = useState(0);
+  const [calendarDialog, setCalendarDialog] = useState<CalendarDraftItem[] | null>(null);
+  const [clock, setClock] = useState(Date.now());
+  useEffect(() => {
+    if (!isAgentResponding) return;
+    setClock(Date.now());
+    const timer = window.setInterval(() => setClock(Date.now()), 1000);
+    return () => window.clearInterval(timer);
+  }, [isAgentResponding]);
 
   useEffect(() => {
     setInputValue('');
     setUndoStack(['']);
     setHistoryIndex(0);
+    setCalendarDialog(null);
   }, [project.id]);
 
   const [modelPopoverOpen, setModelPopoverOpen] = useState(false);
@@ -76,6 +86,7 @@ export function ChatPanel({ project, onMeasureMinWidth }: ChatPanelProps) {
 
   const popoverRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const followStreamRef = useRef(true);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const modelButtonRef = useRef<HTMLButtonElement>(null);
   const sendButtonRef = useRef<HTMLButtonElement>(null);
@@ -124,8 +135,14 @@ export function ChatPanel({ project, onMeasureMinWidth }: ChatPanelProps) {
   }, []);
 
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [activeSession?.messages.length, isAgentResponding]);
+    followStreamRef.current = true;
+  }, [activeSession?.id, isAgentResponding]);
+  const lastMessage = activeSession?.messages.at(-1);
+  useEffect(() => {
+    if (!followStreamRef.current) return;
+    const frame = window.requestAnimationFrame(() => messagesEndRef.current?.scrollIntoView({ behavior: 'instant' }));
+    return () => window.cancelAnimationFrame(frame);
+  }, [activeSession?.id, activeSession?.messages.length, lastMessage?.content, lastMessage?.reasoning, lastMessage?.processingSteps?.length]);
 
   // Auto-grow composer textarea upward toward top without visible scrollbars up to MAX_COMPOSER_HEIGHT
   useLayoutEffect(() => {
@@ -175,11 +192,14 @@ export function ChatPanel({ project, onMeasureMinWidth }: ChatPanelProps) {
     const original = inputValue;
     const trimmed = original.trim();
     if (!trimmed || isAgentResponding || !activeModel) return;
+    setInputValue('');
+    setUndoStack(['']);
+    setHistoryIndex(0);
     const sent = await sendChatMessage(trimmed);
-    if (sent && useWorkspaceStore.getState().activeProjectId === project.id && textareaRef.current?.value === original) {
-      setInputValue('');
-      setUndoStack(['']);
-      setHistoryIndex(0);
+    if (!sent && useWorkspaceStore.getState().activeProjectId === project.id && textareaRef.current?.value === '') {
+      setInputValue(original);
+      setUndoStack(['', original]);
+      setHistoryIndex(1);
     }
   };
 
@@ -253,7 +273,7 @@ export function ChatPanel({ project, onMeasureMinWidth }: ChatPanelProps) {
               Chào {currentUser.name}, hôm nay nhiều việc lắm đấy
             </h2>
 
-            {/* Mini markdown overview report for up to 3 most recent emails */}
+            {/* Daily project memory, always included by the server */}
             <div className="mt-5 w-full rounded-[12px] bg-[var(--surface-card)] border border-[var(--border)]/60 text-left overflow-hidden flex flex-col">
               <div className="px-4 py-3.5 max-h-[248px] scroll-area">
                 <div className="markdown-content markdown-compact max-w-none">
@@ -267,9 +287,9 @@ export function ChatPanel({ project, onMeasureMinWidth }: ChatPanelProps) {
 
               <div className="px-4 py-2.5 bg-[var(--surface-recessed)]/50 flex items-center justify-between gap-3">
                 <span className="text-[12px] leading-[16px] text-[var(--text-muted)] tabular-nums truncate">
-                  {mailOverviewReport.recentMails.length > 0
-                    ? `Bản tóm tắt tự động · ${mailOverviewReport.recentMails.length} mail mới nhất`
-                    : 'Bản tóm tắt email dự án'}
+                  {project.dailyOverview
+                    ? `${project.dailyOverview.email_count} email trong ngày · Luôn dùng khi chat`
+                    : 'Báo cáo email trong ngày'}
                 </span>
                 <button
                   type="button"
@@ -288,7 +308,10 @@ export function ChatPanel({ project, onMeasureMinWidth }: ChatPanelProps) {
           </div>
         </div>
       ) : (
-        <div className="flex-1 min-h-0 scroll-area pr-2">
+        <div className="flex-1 min-h-0 scroll-area pr-2" onScroll={(event) => {
+          const el = event.currentTarget;
+          followStreamRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < 100;
+        }}>
           <div className="max-w-[760px] w-full mx-auto flex flex-col gap-6 pb-4">
             {activeSession?.messages.map((msg) => {
               if (msg.role === 'user') {
@@ -319,7 +342,9 @@ export function ChatPanel({ project, onMeasureMinWidth }: ChatPanelProps) {
                 );
               }
 
-              const reasoningOpen = Boolean(expandedReasoning[msg.id]);
+              const streaming = msg.streamStatus === 'streaming';
+              const reasoningOpen = expandedReasoning[msg.id] ?? streaming;
+              const elapsed = streaming ? Math.max(0, Math.floor((clock - new Date(msg.timestamp).getTime()) / 1000)) : msg.reasoningDurationSec;
               const citationEntries = extractCitationEntries(
                 msg.content,
                 project,
@@ -331,7 +356,7 @@ export function ChatPanel({ project, onMeasureMinWidth }: ChatPanelProps) {
                 <div key={msg.id} className="flex flex-col items-start gap-2 max-w-[92%]">
                   {msg.modelId && <span className="text-[12px] text-[var(--text-muted)]">{msg.modelId}{msg.fallbackUsed ? ' · Model dự phòng VRAM' : ''}</span>}
                   {/* Agent response header: ghost reasoning block */}
-                  {msg.reasoning && (
+                  {(msg.reasoning || msg.processingSteps?.length || streaming) && (
                     <div className="w-full max-w-[660px] flex flex-col items-start gap-1">
                       {/* reasoning-component-shadcn (ghost style) */}
                       <div className="w-full rounded-[10px] bg-transparent">
@@ -341,19 +366,19 @@ export function ChatPanel({ project, onMeasureMinWidth }: ChatPanelProps) {
                           onClick={() =>
                             setExpandedReasoning((prev) => ({
                               ...prev,
-                              [msg.id]: !prev[msg.id],
+                              [msg.id]: !(prev[msg.id] ?? streaming),
                             }))
                           }
                           className="inline-flex items-center gap-2 px-2 py-1.5 -ml-2 rounded-[8px] bg-transparent hover:bg-[var(--surface-card-hover)] text-left text-[13px] leading-[18px] font-semibold text-[var(--text-muted)] hover:text-[var(--text)] transition-colors cursor-pointer"
                         >
                           <span className="inline-flex items-center gap-1.5 tabular-nums">
-                            {reasoningOpen ? (
+                            {streaming ? <IconLoader2 size={15} className="animate-spin" /> : reasoningOpen ? (
                               <IconChevronDown size={15} stroke={2} />
                             ) : (
                               <IconChevronRight size={15} stroke={2} />
                             )}
                             <span>
-                              Quá trình suy luận · {msg.reasoningDurationSec ?? 1.2} giây
+                              {streaming ? 'Đang xử lý' : 'Thông tin xử lý'}{elapsed !== undefined ? ` · ${elapsed} giây` : ''}
                             </span>
                           </span>
                           <span className="text-[12px] font-normal opacity-80">
@@ -362,7 +387,8 @@ export function ChatPanel({ project, onMeasureMinWidth }: ChatPanelProps) {
                         </button>
                         {reasoningOpen && (
                           <div className="mt-1.5 ml-1 pl-3 border-l border-[var(--border)] text-[13px] leading-[20px] text-[var(--text-body)] whitespace-pre-line font-mono">
-                            {msg.reasoning}
+                            {msg.processingSteps?.map((step, index) => <p key={`${index}:${step}`}>{step}</p>)}
+                            {msg.reasoning && <div className="mt-2"><p className="font-semibold">Nội dung suy luận do provider trả về</p>{msg.reasoning}</div>}
                           </div>
                         )}
                       </div>
@@ -377,9 +403,14 @@ export function ChatPanel({ project, onMeasureMinWidth }: ChatPanelProps) {
                       referencedSourceNames={msg.referencedSourceNames}
                     />
                   </div>
+                  {msg.streamError && <p role="alert" className="text-[13px] text-[var(--destroy-fg)]">{msg.streamError}{msg.content ? ' Nội dung phía trên là phần nhận được trước khi lỗi, chưa xác nhận đã lưu.' : ''}</p>}
 
                   {/* Agent actions row: copy icon + RL feedback controls + citations quote button */}
-                  <div className="flex items-center gap-1">
+                  {msg.calendarDrafts?.map((draft) => <div key={draft.id} className="w-full rounded-[10px] border border-[var(--border)] p-3 flex items-center gap-3">
+                    <span className="flex-1 min-w-0 text-[13px]">{draft.draft.title || 'Nháp lịch'}{draft.draft.isApproved ? ' · Đã duyệt' : ' · Chưa tạo sự kiện'}</span>
+                    <button type="button" onClick={() => setCalendarDialog([draft, ...(msg.calendarDrafts || []).filter((item) => item.id !== draft.id)])} className="text-[13px] font-semibold text-[var(--accent-ink)] shrink-0 cursor-pointer">Rà soát lịch</button>
+                  </div>)}
+                  {!streaming && msg.streamStatus !== 'error' && <div className="flex items-center gap-1">
                     <button
                       type="button"
                       aria-label="Sao chép phản hồi"
@@ -463,17 +494,11 @@ export function ChatPanel({ project, onMeasureMinWidth }: ChatPanelProps) {
                         </span>
                       </button>
                     )}
-                  </div>
+                  </div>}
                 </div>
               );
             })}
 
-            {isAgentResponding && (
-              <div className="flex items-center gap-2.5 text-[14px] leading-[20px] text-[var(--text-muted)] py-2">
-                <IconLoader2 size={18} stroke={2} className="animate-spin text-[var(--accent-ink)]" />
-                <span>Đang phân tích ngữ cảnh trên {activeModel?.name || 'Chọn mô hình'}...</span>
-              </div>
-            )}
             <div ref={messagesEndRef} />
           </div>
         </div>
@@ -603,6 +628,7 @@ export function ChatPanel({ project, onMeasureMinWidth }: ChatPanelProps) {
       </div>
 
       {/* Provider & Local LLM Settings Dialog (triggered by settings-2) */}
+      {calendarDialog && <CalendarDraftDialog projectId={project.id} drafts={calendarDialog} onClose={() => setCalendarDialog(null)} />}
       <ModelSettingsDialog
         open={modelSettingsOpen}
         onClose={() => setModelSettingsOpen(false)}
@@ -654,17 +680,19 @@ export function ChatPanel({ project, onMeasureMinWidth }: ChatPanelProps) {
                   pageObj?.sections[0];
                 const isFocused =
                   pdfViewer?.resourceId === entry.pdf.id &&
-                  pdfViewer?.targetPage === resolved.pageNumber;
+                  pdfViewer?.targetPage === resolved.pageNumber &&
+                  pdfViewer?.citationQuote === entry.quote;
 
                 return (
                   <button
-                    key={`${entry.pdf.id}-${entry.rawLabel}`}
+                    key={`${entry.pdf.id}-${entry.rawLabel}-${entry.quote || ""}`}
                     type="button"
                     onClick={() => {
                       openPdfViewer(project.id, entry.pdf.id, {
                         page: entry.page,
                         sectionId: resolved.sectionId,
                         citationLabel: entry.rawLabel,
+                        citationQuote: entry.quote,
                       });
                       setCitationsDialog(null);
                     }}
@@ -694,7 +722,8 @@ export function ChatPanel({ project, onMeasureMinWidth }: ChatPanelProps) {
                       </span>
                     </div>
 
-                    {secObj && (
+                    {entry.quote && <p className="text-[12px] text-[var(--text-muted)] line-clamp-3">“{entry.quote}”</p>}
+                    {!entry.quote && secObj && (
                       <div className="flex flex-col gap-1">
                         {secObj.heading && (
                           <span className="text-[12px] leading-[18px] font-semibold text-[var(--text)]">

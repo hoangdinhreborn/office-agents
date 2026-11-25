@@ -1,23 +1,57 @@
-import { useEffect } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Button } from './components/ui/button';
+import { GoogleAuthPage, type GoogleAuthStatus } from './components/GoogleAuthPage';
+import { loadGoogleAuthStatus, oauthErrorMessage, startGoogleLogin } from './lib/google-auth-api';
 import { ProjectDetailPage } from './components/ProjectDetailPage';
 import { ProjectListPage } from './components/ProjectListPage';
 import { Sidebar } from './components/Sidebar';
 import { ToastContainer } from './components/ToastContainer';
 import { TooltipProvider } from './components/ui/tooltip';
 import { useWorkspaceStore } from './store/useWorkspaceStore';
+import { useCalendarReminders } from './lib/useCalendarReminders';
 
 export default function App() {
-  const currentUser = useWorkspaceStore((s) => s.currentUser);
   const initializeWorkspace = useWorkspaceStore((s) => s.initializeWorkspace);
   const isLoadingProjects = useWorkspaceStore((s) => s.isLoadingProjects);
   const workspaceLoaded = useWorkspaceStore((s) => s.workspaceLoaded);
   const workspaceError = useWorkspaceStore((s) => s.workspaceError);
-  useEffect(() => { void initializeWorkspace(); }, [initializeWorkspace]);
+  const [authStatus, setAuthStatus] = useState<GoogleAuthStatus | null>(null);
+  const [authLoading, setAuthLoading] = useState(true);
+  const [authError, setAuthError] = useState<string | null>(null);
+  const checkGoogle = useCallback(async () => {
+    setAuthLoading(true); setAuthError(null);
+    try {
+      const status = await loadGoogleAuthStatus();
+      setAuthStatus(status);
+      if (!status.configured && !status.authenticated) setAuthError(status.configuration_error);
+      return status.authenticated;
+    } catch (error) {
+      setAuthStatus(null);
+      setAuthError(error instanceof Error ? error.message : 'Không kết nối được backend.');
+      return false;
+    } finally { setAuthLoading(false); }
+  }, []);
   const activeView = useWorkspaceStore((s) => s.activeView);
   const isLoggedOut = useWorkspaceStore((s) => s.isLoggedOut);
   const signBackIn = useWorkspaceStore((s) => s.signBackIn);
   const themeMode = useWorkspaceStore((s) => s.themeMode);
+  useEffect(() => {
+    const query = new URLSearchParams(window.location.search);
+    const oauthError = query.get('oauth_error');
+    const connected = query.get('oauth') === 'connected';
+    if (oauthError || connected) {
+      query.delete('oauth'); query.delete('oauth_error');
+      window.history.replaceState(null, '', window.location.pathname + (query.size ? `?${query}` : '') + window.location.hash);
+    }
+    void checkGoogle().then((authenticated) => {
+      if (oauthError) setAuthError(oauthErrorMessage(oauthError));
+      // Only status() grants access; the URL marker merely clears the local logout flag.
+      if (connected && authenticated) signBackIn();
+    });
+  }, [checkGoogle, signBackIn]);
+  const googleReady = Boolean(authStatus?.authenticated && !authError && !authLoading && !isLoggedOut);
+  useEffect(() => { if (googleReady) void initializeWorkspace(); }, [googleReady, initializeWorkspace]);
+  useCalendarReminders(workspaceLoaded && googleReady);
 
   // Sync resolved Light / Dark theme to <html> class & meta theme-color (reacting live to OS changes in system mode)
   useEffect(() => {
@@ -42,37 +76,12 @@ export default function App() {
     return undefined;
   }, [themeMode]);
 
-  if (isLoggedOut) {
-    return (
-      <TooltipProvider>
-        <div className="h-screen w-screen overflow-hidden bg-[var(--bg)] flex items-center justify-center p-6">
-          <div className="w-full max-w-[420px] rounded-[16px] bg-[var(--surface)] elevated-subtle p-8 flex flex-col items-center text-center gap-4">
-            <img
-              src="/assets/mesoffice-logo.png"
-              alt="Logo Sổ Việc"
-              className="w-14 h-14 object-contain"
-            />
-            <div className="flex flex-col gap-1.5">
-              <h1 className="text-[25px] leading-[32px] font-bold text-[var(--text)]">
-                Đã đăng xuất
-              </h1>
-              <p className="text-[16px] leading-[24px] text-[var(--text-body)]">
-                Phiên làm việc cục bộ của {currentUser.name} đã kết thúc. Dữ liệu dự án vẫn được giữ
-                nguyên.
-              </p>
-            </div>
-            <button
-              type="button"
-              onClick={signBackIn}
-              className="mt-2 w-full h-11 rounded-[8px] bg-[#FCA311] text-[#14213D] text-[14px] leading-[20px] font-semibold hover:bg-[var(--accent-hover)] transition-colors cursor-pointer"
-            >
-              Đăng nhập lại
-            </button>
-          </div>
-          <ToastContainer />
-        </div>
-      </TooltipProvider>
-    );
+  if (!googleReady) {
+    return <TooltipProvider>
+      <GoogleAuthPage status={authStatus} loading={authLoading} error={authError}
+        onRetry={() => void checkGoogle()} onLogin={startGoogleLogin} />
+      <ToastContainer />
+    </TooltipProvider>;
   }
 
   if (!workspaceLoaded || workspaceError) {

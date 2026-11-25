@@ -1,10 +1,12 @@
 import { z } from 'zod';
 import type { CustomRecurrence, ProjectIconCode, RepeatOption } from '../types/workspace';
 
-/**
- * Exact constraint from layout-spec.yaml:
- * Display first 18 characters; from character 19 onward replace with "..."
- */
+export function truncate10(value: string): string {
+  const chars = Array.from(value);
+  return chars.length > 10 ? `${chars.slice(0, 10).join('')}…` : value;
+}
+
+/** Display first 18 characters per the resource layout specification. */
 export function truncate18(value: string): string {
   if (!value) return '';
   if (value.length <= 18) return value;

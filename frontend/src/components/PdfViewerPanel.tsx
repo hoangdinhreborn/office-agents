@@ -10,6 +10,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   PDFViewer,
   type PDFViewerHandle,
+  type CitationFocusResult,
   type PDFViewerPageOverlayProps,
   type PDFViewerTheme,
 } from '@/src/components/extend/pdf-viewer';
@@ -53,6 +54,9 @@ export function PdfViewerPanel({
   const [bundle, setBundle] = useState<GeneratedPdfBundle | null>(null);
   const [bundleError, setBundleError] = useState<string | null>(null);
   const [loadedNumPages, setLoadedNumPages] = useState<number>(0);
+  const [citationStatus, setCitationStatus] = useState<CitationFocusResult | 'searching' | null>(null);
+  const isGeneratedReport = pdf.id === MAIL_OVERVIEW_REPORT_ID || pdf.id.startsWith(`${MAIL_OVERVIEW_REPORT_ID}::`);
+  const reportContentKey = isGeneratedReport ? JSON.stringify(pdf.pages) : '';
 
   // Sync PDF viewer theme automatically when global app theme mode changes
   useEffect(() => {
@@ -68,9 +72,16 @@ export function PdfViewerPanel({
   useEffect(() => {
     let cancelled = false;
     setBundleError(null);
+    setBundle(null);
     setLoadedNumPages(0);
 
-    getOrBuildPdfBundle(pdf)
+    const source = pdf.fileUrl
+      ? Promise.resolve({ url: pdf.fileUrl, sectionRects: {} })
+      : isGeneratedReport
+        ? getOrBuildPdfBundle(pdf)
+        : Promise.reject(new Error("Tài nguyên này chưa có PDF gốc. Vui lòng tải lại file qua Tài nguyên."));
+
+    source
       .then((result) => {
         if (!cancelled) {
           setBundle(result);
@@ -87,12 +98,12 @@ export function PdfViewerPanel({
     return () => {
       cancelled = true;
     };
-  }, [pdf]);
+  }, [pdf.id, pdf.fileUrl, reportContentKey]);
 
   const activeSectionRect = useMemo(() => {
-    if (!bundle || !viewerState.highlightSectionId) return null;
+    if (pdf.fileUrl || !bundle || !viewerState.highlightSectionId) return null;
     return bundle.sectionRects[viewerState.highlightSectionId] ?? null;
-  }, [bundle, viewerState.highlightSectionId]);
+  }, [bundle, pdf.fileUrl, viewerState.highlightSectionId]);
 
   const scrollToCitationTarget = useCallback(
     (behavior: ScrollBehavior = 'smooth') => {
@@ -136,6 +147,39 @@ export function PdfViewerPanel({
     scrollToCitationTarget,
   ]);
 
+  useEffect(() => {
+    const handle = viewerRef.current;
+    handle?.clearCitation();
+    setCitationStatus(null);
+    if (!pdf.fileUrl || !viewerState.citationQuote || loadedNumPages < 1) return;
+    let cancelled = false;
+    setCitationStatus('searching');
+    // Wait for the loaded document to propagate to the viewer handle. Run after
+    // the page-only scroll above, so it cannot overwrite the passage position.
+    const start = window.setTimeout(() => {
+      const current = viewerRef.current;
+      if (!current) { window.clearTimeout(deadline); setCitationStatus('error'); return; }
+      current.focusCitation(viewerState.targetPage, viewerState.citationQuote!).then((status) => {
+        if (!cancelled) {
+          window.clearTimeout(deadline);
+          setCitationStatus(status);
+        }
+      });
+    }, 180);
+    const deadline = window.setTimeout(() => {
+      cancelled = true;
+      viewerRef.current?.clearCitation();
+      setCitationStatus('error');
+    }, 30_000);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(start);
+      window.clearTimeout(deadline);
+      handle?.clearCitation();
+      viewerRef.current?.clearCitation();
+    };
+  }, [pdf.fileUrl, loadedNumPages, viewerState.targetPage, viewerState.citationQuote, viewerState.focusNonce]);
+
   const renderPageOverlay = useCallback(
     ({ pageNumber }: PDFViewerPageOverlayProps) => {
       if (!activeSectionRect || activeSectionRect.pageNumber !== pageNumber) {
@@ -168,7 +212,7 @@ export function PdfViewerPanel({
         </div>
       );
     },
-    [activeSectionRect, viewerState.highlightSectionId, viewerState.focusNonce, viewerTheme]
+    [activeSectionRect, viewerState.highlightSectionId, viewerState.focusNonce, viewerState.citationLabel, viewerState.targetPage, viewerTheme, pdf.fileUrl]
   );
 
   return (
@@ -197,6 +241,7 @@ export function PdfViewerPanel({
         </div>
 
         <div className="flex items-center gap-1 shrink-0">
+          {bundle && <a href={bundle.url} target="_blank" rel="noopener noreferrer" className="text-[12px] text-[var(--accent-ink)] px-2">Mở PDF gốc</a>}
           {onToggleWide && (
             <button
               type="button"
@@ -230,6 +275,22 @@ export function PdfViewerPanel({
 
       <div className="h-px w-full bg-[var(--divider)] shrink-0" />
 
+      {pdf.fileUrl && viewerState.citationLabel && (
+        <div role="status" aria-live="polite" className="shrink-0 px-4 py-2 text-[12px] text-[var(--text-muted)] border-b border-[var(--divider)]">
+          {!viewerState.citationQuote
+            ? 'Trích dẫn cũ chỉ lưu số trang, chưa có đoạn nguyên văn để định vị. Tạo lại câu trả lời để có trích dẫn chính xác.'
+            : citationStatus === 'searching' || !citationStatus
+              ? 'Đang tìm đoạn trích trong PDF…'
+              : citationStatus === 'matched'
+                ? 'Đã tô các dòng chứa đoạn trích nguyên văn.'
+                : citationStatus === 'ambiguous'
+                  ? 'Đoạn trích lặp lại nhiều lần trên trang; chưa thể xác định duy nhất vị trí.'
+                  : citationStatus === 'error'
+                    ? 'Chưa định vị được đoạn trích. Bạn có thể tìm trong PDF hoặc mở bản gốc.'
+                    : 'Không tìm thấy đoạn nguyên văn trên trang này. PDF scan chưa có lớp chữ cũng chưa định vị được.'}
+        </div>
+      )}
+
       {/* @extend/pdf-viewer instance with native Light/Dark theme switch */}
       <div className="flex-1 min-h-0 w-full overflow-hidden">
         {bundleError ? (
@@ -239,7 +300,7 @@ export function PdfViewerPanel({
         ) : !bundle ? (
           <div className="h-full w-full flex flex-col items-center justify-center gap-2.5 p-6 text-center bg-[var(--bg)]">
             <IconLoader2 size={24} className="animate-spin text-[var(--text-muted)]" />
-            <p className="text-[13px] text-[var(--text-muted)]">Đang dựng tệp PDF và tải bộ đọc...</p>
+            <p className="text-[13px] text-[var(--text-muted)]">Đang tải PDF gốc và bộ đọc...</p>
           </div>
         ) : (
           <PDFViewer

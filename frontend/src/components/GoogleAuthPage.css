@@ -1,0 +1,105 @@
+.sov-auth-shell {
+  --auth-brand-bg: #f2f4f8;
+  --auth-grid-line: rgba(20, 33, 61, .09);
+  --auth-flow-accent: #fca311;
+  --auth-flow-core: #cb7c00;
+  --auth-flow-cold: #3b4d73;
+  --auth-flow-cold-core: #14213d;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(420px, 500px);
+  min-height: 100svh;
+  padding: 20px;
+  gap: 20px;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-sans);
+}
+
+.dark .sov-auth-shell {
+  --auth-brand-bg: #070e1f;
+  --auth-grid-line: rgba(168, 181, 206, .095);
+  --auth-flow-core: #fff3dd;
+  --auth-flow-cold: #a8b5ce;
+  --auth-flow-cold-core: #fff;
+}
+
+.sov-auth-brand {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  overflow: hidden;
+  min-height: calc(100svh - 40px);
+  padding: 36px 28px;
+  border-radius: 18px;
+  background: var(--auth-brand-bg);
+  color: var(--text);
+  isolation: isolate;
+}
+
+/* Both canvases use the same regular hexagon geometry and origin. */
+.sov-auth-honeycomb { position: absolute; inset: 0; z-index: 0; pointer-events: none; mask-image: radial-gradient(ellipse at center, #000 25%, transparent 90%); }
+.sov-auth-honeycomb canvas { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+.sov-auth-honeycomb-mesh { z-index: 0; }
+.sov-auth-honeycomb-flow { z-index: 1; }
+.sov-auth-brand-center { position: relative; z-index: 1; }
+
+.sov-auth-brand-center { display: flex; flex-direction: column; align-items: center; padding: 30px 0 44px; text-align: center; width: 100%; min-width: 0; }
+.sov-auth-logo { display: block; width: min(280px, 100%); height: auto; aspect-ratio: 1; object-fit: contain; filter: drop-shadow(0 8px 32px #fca31122); margin: -30px 0 -14px; }
+.sov-auth-brand h1 { margin: 0; max-width: 100%; font-size: clamp(26px, 3.3vw, 58px); line-height: 1.2; font-weight: 700; letter-spacing: -.045em; overflow-wrap: anywhere; }
+.sov-auth-brand-center p { margin: 26px 0 0; color: var(--text-body); font-size: clamp(17px, 1.8vw, 23px); line-height: 1.65; letter-spacing: -.02em; }
+
+.sov-auth-panel { display: flex; flex-direction: column; justify-content: center; position: relative; gap: 48px; padding: 84px 44px 40px; border-radius: 18px; background: var(--surface-panel); border: 1px solid var(--divider); min-width: 0; }
+.sov-auth-panel-top { position: absolute; top: 24px; right: 24px; display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: 14px; color: var(--text-muted); font-size: 10px; font-weight: 600; letter-spacing: .09em; line-height: 1.6; }
+.sov-auth-themes { display: flex; gap: 2px; padding: 3px; border-radius: 8px; background: var(--surface-track); }
+.sov-auth-themes button { display: grid; place-items: center; width: 28px; height: 28px; border: 0; border-radius: 5px; background: transparent; color: var(--text-muted); cursor: pointer; }
+.sov-auth-themes button[aria-pressed="true"] { background: var(--surface); color: var(--text); box-shadow: 0 1px 3px #070e1f14; }
+.sov-auth-themes button:hover { color: var(--text); }
+.sov-auth-themes button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.sov-auth-title-accent { color: var(--accent-ink); }
+.sov-auth-content h2 { margin: 18px 0; font-size: clamp(28px, 2.8vw, 36px); line-height: 1.35; letter-spacing: -.045em; font-weight: 700; white-space: pre-line; }
+.sov-auth-intro { margin: 0; color: var(--text-muted); font-size: 14px; line-height: 1.85; }
+.sov-auth-services { display: grid; gap: 13px; margin: 30px 0; padding: 21px 0; border-block: 1px solid var(--divider); }
+.sov-auth-services > div { display: flex; align-items: center; gap: 11px; color: var(--text-body); font-size: 13px; }
+.sov-auth-services svg { color: var(--text-muted); flex-shrink: 0; }
+.sov-auth-connected { margin-left: auto; color: var(--success-fg); font-size: 10px; }
+.sov-auth-shell .sov-auth-login { width: 100%; min-height: 52px; height: auto; padding: 14px 16px; gap: 12px; background: #fff; color: #14213d; border: 1px solid #cad2de; box-shadow: 0 2px 4px #070e1f08; font-size: 13px; font-weight: 600; border-radius: 9px; white-space: normal; text-align: left; }
+.sov-auth-shell .sov-auth-login:hover { background: #f3f5f9; border-color: #a8b5ce; }
+.sov-auth-shell .sov-auth-login:focus-visible { outline: 2px solid #fca311; outline-offset: 4px; }
+.sov-auth-shell .sov-auth-login:disabled { opacity: .6; }
+.sov-auth-google-mark { width: 20px; height: 20px; flex-shrink: 0; }
+.sov-auth-login-arrow { margin-left: auto; color: #647089; }
+.sov-auth-feedback { min-height: 42px; padding-top: 12px; color: var(--text-muted); font-size: 12px; line-height: 1.7; }
+.sov-auth-feedback p { margin: 0 0 8px; overflow-wrap: anywhere; }
+.sov-auth-feedback .sov-auth-error { color: var(--destroy-fg); }
+.sov-auth-shell .sov-auth-retry { padding-inline: 0; color: var(--text-body); font-size: 12px; }
+.sov-auth-assurance { display: flex; gap: 10px; margin: 20px 0 0; color: var(--text-muted); font-size: 11px; line-height: 1.8; }
+.sov-auth-assurance svg { flex-shrink: 0; margin-top: 2px; }
+.sov-auth-spinner { animation: sov-auth-spin 1s linear infinite; }
+@keyframes sov-auth-spin { to { transform: rotate(360deg); } }
+
+@media (max-width: 900px) {
+  .sov-auth-shell { grid-template-columns: minmax(0, 1fr) minmax(360px, 440px); padding: 12px; gap: 12px; }
+  .sov-auth-panel { padding: 84px 28px 40px; }
+  .sov-auth-brand { padding: 32px 20px; min-height: calc(100svh - 24px); }
+}
+
+@media (max-width: 800px) {
+  .sov-auth-shell { grid-template-columns: 1fr; gap: 0; padding: 0; }
+  .sov-auth-brand { min-height: 320px; padding: 24px; border-radius: 0; }
+  .sov-auth-brand-center { padding: 4px 0 16px; }
+  .sov-auth-logo { width: min(200px, 100%); margin: -22px 0 -28px; }
+  .sov-auth-brand h1 { font-size: clamp(23px, 6vw, 38px); }
+  .sov-auth-brand-center p { margin-top: 12px; font-size: 16px; }
+  .sov-auth-brand-center p br { display: none; }
+  .sov-auth-panel { gap: 32px; padding: 70px max(24px, calc((100vw - 420px) / 2)); border: 0; border-radius: 0; }
+
+  .sov-auth-content h2 { font-size: 30px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sov-auth-spinner { animation: none; }
+  .sov-auth-honeycomb-flow { display: none; }
+  .sov-auth-shell button { transition: none; }
+}

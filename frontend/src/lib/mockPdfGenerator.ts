@@ -1,6 +1,7 @@
 import fontkit from '@pdf-lib/fontkit';
 import { PDFDocument, rgb, type PDFFont } from 'pdf-lib';
 import type { PdfPage, PdfResource } from '../types/workspace';
+import { stripReportCitations } from './reportCitations';
 
 export interface PdfSectionRect {
   pageNumber: number;
@@ -42,8 +43,9 @@ function loadUnicodeFonts() {
 }
 
 function wrapText(text: string, font: PDFFont, fontSize: number, maxWidth: number): string[] {
-  const words = text.replace(/\s+/g, ' ').trim().split(' ');
-  if (words.length === 0) return [];
+  const cleaned = stripReportCitations(text).replace(/\s+/g, ' ').trim();
+  if (!cleaned) return [];
+  const words = cleaned.split(' ');
   const lines: string[] = [];
   let current = '';
 
@@ -103,7 +105,7 @@ export function getOrBuildPdfBundle(pdf: PdfResource): Promise<GeneratedPdfBundl
     return Promise.resolve({ url: pdf.fileUrl, sectionRects: {} });
   }
 
-  const cacheKey = `${pdf.id}:${pdf.pageCount}:${pdf.pages?.length ?? 0}`;
+  const cacheKey = `${pdf.id}:${pdf.pageCount}:${JSON.stringify(pdf.pages || [])}`;
   const cached = generatedPdfCache.get(cacheKey);
   if (cached) return cached;
 
@@ -112,7 +114,7 @@ export function getOrBuildPdfBundle(pdf: PdfResource): Promise<GeneratedPdfBundl
     const pdfDoc = await PDFDocument.create();
     pdfDoc.registerFontkit(fontkit);
     pdfDoc.setTitle(pdf.fileName);
-    pdfDoc.setAuthor('Sổ Việc — Trợ lý Văn phòng Cục bộ');
+    pdfDoc.setAuthor('deskhive-harness — Trợ lý Văn phòng Cục bộ');
 
     const regularFont = await pdfDoc.embedFont(regular, { subset: true });
     const boldFont = await pdfDoc.embedFont(bold, { subset: true });
@@ -140,7 +142,7 @@ export function getOrBuildPdfBundle(pdf: PdfResource): Promise<GeneratedPdfBundl
       // Running header
       const headerY = A4_HEIGHT - 44;
       const headerLines = wrapText(data.headerTitle, boldFont, 8.5, CONTENT_WIDTH - 74);
-      page.drawText(headerLines[0] ?? pdf.fileName, {
+      page.drawText(headerLines[0] ?? stripReportCitations(pdf.fileName), {
         x: MARGIN_X,
         y: headerY,
         size: 8.5,
@@ -230,7 +232,7 @@ export function getOrBuildPdfBundle(pdf: PdfResource): Promise<GeneratedPdfBundl
           let colX = MARGIN_X;
           headers.forEach((h, idx) => {
             const w = colWidths[idx] ?? CONTENT_WIDTH / colCount;
-            const clipped = wrapText(h, boldFont, 8.5, w - 10)[0] ?? h;
+            const clipped = wrapText(h, boldFont, 8.5, w - 10)[0] ?? '';
             page.drawText(clipped, {
               x: colX + 6,
               y: cursorY - 9,
@@ -256,7 +258,7 @@ export function getOrBuildPdfBundle(pdf: PdfResource): Promise<GeneratedPdfBundl
             let cellX = MARGIN_X;
             row.forEach((cell, idx) => {
               const w = colWidths[idx] ?? CONTENT_WIDTH / colCount;
-              const clipped = wrapText(cell, regularFont, 8.5, w - 10)[0] ?? cell;
+              const clipped = wrapText(cell, regularFont, 8.5, w - 10)[0] ?? '';
               page.drawText(clipped, {
                 x: cellX + 6,
                 y: cursorY - 9,
@@ -299,8 +301,8 @@ export function getOrBuildPdfBundle(pdf: PdfResource): Promise<GeneratedPdfBundl
       });
 
       const footerLeft = pdf.isOcr
-        ? 'Văn bản trích xuất qua OCR cục bộ — Sổ Việc'
-        : 'Tài liệu dự án nội bộ — Sổ Việc';
+        ? 'Văn bản trích xuất qua OCR cục bộ — deskhive-harness'
+        : 'Tài liệu dự án nội bộ — deskhive-harness';
       page.drawText(footerLeft, {
         x: MARGIN_X,
         y: footerY,

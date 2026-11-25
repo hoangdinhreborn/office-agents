@@ -15,6 +15,7 @@ import type { Project, SortMode } from '../types/workspace';
 import { formatDateDDMMYYYY, projectTitleSchema } from '../utils/format';
 import { NewProjectDialog } from './NewProjectDialog';
 import { PickIconDialog } from './PickIconDialog';
+import { ConfirmDeleteDialog } from './ConfirmDeleteDialog';
 import { ProjectIcon } from './ProjectIcon';
 
 const SORT_OPTIONS: { value: SortMode; label: string }[] = [
@@ -39,6 +40,7 @@ export function ProjectListPage() {
   const [newProjectOpen, setNewProjectOpen] = useState(false);
   const [openMenuProjectId, setOpenMenuProjectId] = useState<string | null>(null);
 
+  const [deleteTarget, setDeleteTarget] = useState<Project | null>(null);
   const [renameTarget, setRenameTarget] = useState<Project | null>(null);
   const [renameValue, setRenameValue] = useState('');
   const [renameError, setRenameError] = useState<string | null>(null);
@@ -300,7 +302,7 @@ export function ProjectListPage() {
                             role="menuitem"
                             onClick={() => {
                               setOpenMenuProjectId(null);
-                              deleteProject(project.id);
+                              setDeleteTarget(project);
                             }}
                             className="w-full flex items-center gap-2.5 px-3 py-2 rounded-[8px] bg-transparent hover:bg-[var(--destroy-bg)] text-[14px] leading-[20px] font-semibold text-[var(--destroy-fg)] hover:text-[var(--destroy-fg-hover)] cursor-pointer"
                           >
@@ -408,6 +410,11 @@ export function ProjectListPage() {
           </div>
         </div>
       )}
+
+      <ConfirmDeleteDialog open={Boolean(deleteTarget)} title="Xóa vĩnh viễn dự án?"
+        description={`Xóa “${deleteTarget?.title || ''}” cùng phiên chat, tài nguyên email/PDF, tóm tắt, giải pháp, ràng buộc, nháp lịch, phản hồi và file trong ứng dụng. Thư gốc, nhãn Gmail và sự kiện Google Calendar được giữ nguyên.`}
+        onOpenChange={(open) => { if (!open) setDeleteTarget(null); }}
+        onConfirm={() => deleteTarget ? deleteProject(deleteTarget.id) : Promise.resolve(false)} />
 
       {/* Change Icon Dialog */}
       <PickIconDialog

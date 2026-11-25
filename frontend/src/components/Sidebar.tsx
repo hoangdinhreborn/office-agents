@@ -10,6 +10,7 @@ import {
   IconMoon,
   IconSelector,
   IconSun,
+  IconTrash,
   IconX,
 } from '@tabler/icons-react';
 import { useEffect, useState } from 'react';
@@ -19,7 +20,8 @@ import {
   PopoverTrigger,
 } from '@/src/components/ui/popover';
 import { useWorkspaceStore } from '../store/useWorkspaceStore';
-import type { ThemeMode } from '../types/workspace';
+import type { ChatSession, ThemeMode } from '../types/workspace';
+import { ConfirmDeleteDialog } from './ConfirmDeleteDialog';
 import { formatShortDate } from '../utils/format';
 
 const THEME_OPTIONS: Array<{
@@ -42,10 +44,13 @@ export function Sidebar() {
   const projects = useWorkspaceStore((s) => s.projects);
   const openProjectsList = useWorkspaceStore((s) => s.openProjectsList);
   const openChatSession = useWorkspaceStore((s) => s.openChatSession);
+  const deleteChatSession = useWorkspaceStore((s) => s.deleteChatSession);
+  const isAgentResponding = useWorkspaceStore((s) => s.isAgentResponding);
   const logoutUser = useWorkspaceStore((s) => s.logoutUser);
   const themeMode = useWorkspaceStore((s) => s.themeMode);
   const setThemeMode = useWorkspaceStore((s) => s.setThemeMode);
 
+  const [deleteTarget, setDeleteTarget] = useState<ChatSession | null>(null);
   const [logoHovered, setLogoHovered] = useState(false);
   const [logoutDialogOpen, setLogoutDialogOpen] = useState(false);
   const [userPopoverOpen, setUserPopoverOpen] = useState(false);
@@ -86,15 +91,16 @@ export function Sidebar() {
               <button
                 type="button"
                 onClick={openProjectsList}
+                title="deskhive-harness"
                 className="flex items-center gap-2 min-w-0 rounded-[8px] py-1 px-1 bg-transparent hover:bg-[var(--surface-card-hover)] transition-colors cursor-pointer"
               >
                 <img
                   src="/assets/mesoffice-logo.png"
-                  alt="Logo Sổ Việc"
+                  alt="Logo deskhive-harness"
                   className="w-9 h-9 object-contain shrink-0"
                 />
-                <span className="text-[18px] leading-[24px] font-bold tracking-[-0.01em] text-[var(--text)] whitespace-nowrap truncate">
-                  Sổ Việc
+                <span className="text-[14px] leading-[24px] font-bold tracking-[-0.01em] text-[var(--text)] whitespace-nowrap truncate">
+                  deskhive-harness
                 </span>
               </button>
               <button
@@ -131,7 +137,7 @@ export function Sidebar() {
               ) : (
                 <img
                   src="/assets/mesoffice-logo.png"
-                  alt="Logo Sổ Việc"
+                  alt="Logo deskhive-harness"
                   className="w-9 h-9 object-contain"
                 />
               )}
@@ -149,7 +155,7 @@ export function Sidebar() {
               title="Dự án"
               aria-current={activeView === 'projects' ? 'page' : undefined}
               className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-[8px] text-[14px] leading-[20px] font-semibold transition-colors cursor-pointer ${
-                sidebarOpen ? 'justify-start' : 'justify-center px-0'
+                sidebarOpen ? 'justify-start pr-10' : 'justify-center px-0'
               } ${
                 activeView === 'projects'
                   ? 'bg-[var(--surface-control)] text-[var(--text)]'
@@ -190,13 +196,13 @@ export function Sidebar() {
                   const isActive =
                     activeView === 'project-detail' && activeSessionId === session.id;
                   return (
+                    <div key={session.id} className="relative group">
                     <button
-                      key={session.id}
                       type="button"
                       title={`${session.title} — ${getProjectTitle(session.projectId)}`}
                       onClick={() => openChatSession(session.id)}
                       className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-[8px] text-left transition-colors cursor-pointer ${
-                        sidebarOpen ? 'justify-start' : 'justify-center px-0'
+                        sidebarOpen ? 'justify-start pr-10' : 'justify-center px-0'
                       } ${
                         isActive
                           ? 'bg-[var(--surface-control)] text-[var(--text)]'
@@ -225,6 +231,14 @@ export function Sidebar() {
                         </div>
                       )}
                     </button>
+                    {sidebarOpen && <button type="button" disabled={isAgentResponding}
+                      title={isAgentResponding ? 'Chờ câu trả lời hoàn tất' : `Xóa phiên ${session.title}`}
+                      aria-label={`Xóa phiên ${session.title}`}
+                      onClick={() => setDeleteTarget(session)}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 size-7 rounded-md flex items-center justify-center text-[var(--text-muted)] hover:text-[var(--destroy-fg)] hover:bg-[var(--destroy-bg)] disabled:opacity-30 cursor-pointer">
+                      <IconTrash size={15} />
+                    </button>}
+                    </div>
                   );
                 })
               )}
@@ -430,6 +444,10 @@ export function Sidebar() {
           </div>
         </div>
       )}
+      <ConfirmDeleteDialog open={Boolean(deleteTarget)} title="Xóa phiên chat?"
+        description={`Xóa vĩnh viễn “${deleteTarget?.title || ''}” và toàn bộ tin nhắn trong phiên. Dự án và tài nguyên vẫn được giữ lại.`}
+        onOpenChange={(open) => { if (!open) setDeleteTarget(null); }}
+        onConfirm={() => deleteTarget ? deleteChatSession(deleteTarget.id) : Promise.resolve(false)} />
     </>
   );
 }

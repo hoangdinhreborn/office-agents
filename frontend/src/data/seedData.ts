@@ -631,15 +631,7 @@ export const INITIAL_PROJECTS: Project[] = [
         pages: MOCK_PDF_MINH_KHOI_Q4,
         createdAt: '2026-11-23T14:20:00.000Z',
         selected: true,
-        activeSummaryStyle: 'ý chính',
-        summaryByStyle: {
-          ngắn:
-            'Phụ lục điều chỉnh giá trị gói triển khai lên **1,45 tỷ VNĐ** [tr. 3], chia 3 đợt thanh toán và bổ sung điều khoản bảo trì 12 tháng [tr. 18]. Cần ký xác nhận trước **28-11-2026**.',
-          'ý chính':
-            '### Điểm trọng yếu của Phụ lục Hợp đồng\n- **Giá trị & Thanh toán:** Tổng giá trị **1,45 tỷ VNĐ** (đã gồm VAT), thanh toán theo tỷ lệ `30% / 40% / 30%` trong vòng 10 ngày làm việc sau nghiệm thu [tr. 3–5].\n- **Cam kết SLA:** Thời gian phản hồi sự cố nghiêm trọng tối đa **2 giờ**; phạt chậm tiến độ `0,05%/ngày`, trần tối đa `8%` [tr. 12].\n- **Mốc bàn giao:** Nghiệm thu giai đoạn 1 vào **10-12-2026** và hoàn tất toàn bộ vào **25-12-2026** [tr. 19].',
-          'gạch đầu dòng':
-            '- Tổng giá trị điều chỉnh: 1,45 tỷ VNĐ [tr. 3].\n- Đợt 1 (30%): ngay sau ký phụ lục [tr. 4].\n- Đợt 2 (40%): sau nghiệm thu hạ tầng 10-12-2026 [tr. 5].\n- Đợt 3 (30%): sau bàn giao chính thức 25-12-2026 [tr. 5].\n- Rủi ro pháp lý: Điều 7.2 chưa nêu rõ ngoại lệ bất khả kháng từ phía hạ tầng bên thứ ba [tr. 14].',
-        },
+        summaryMarkdown: '### Điểm trọng yếu của Phụ lục Hợp đồng\n- **Giá trị & Thanh toán:** Tổng giá trị **1,45 tỷ VNĐ** (đã gồm VAT), thanh toán theo tỷ lệ `30% / 40% / 30%` trong vòng 10 ngày làm việc sau nghiệm thu [tr. 3–5].\n- **Cam kết SLA:** Thời gian phản hồi sự cố nghiêm trọng tối đa **2 giờ**; phạt chậm tiến độ `0,05%/ngày`, trần tối đa `8%` [tr. 12].\n- **Mốc bàn giao:** Nghiệm thu giai đoạn 1 vào **10-12-2026** và hoàn tất toàn bộ vào **25-12-2026** [tr. 19].',
         solutions: [
           {
             id: 'sol-p1-1-a',
@@ -681,15 +673,7 @@ export const INITIAL_PROJECTS: Project[] = [
         hasPdfAttachment: true,
         createdAt: '2026-11-24T08:10:00.000Z',
         selected: true,
-        activeSummaryStyle: 'ý chính',
-        summaryByStyle: {
-          ngắn:
-            'Đối tác Minh Khôi đề xuất họp **09:30 ngày 26-11-2026** để chốt phương án bảo lãnh thanh toán đợt 2 và đính kèm bảng đối chiếu công nợ.',
-          'ý chính':
-            '### Tóm tắt Email từ Đối tác Minh Khôi\n- **Yêu cầu chính:** Xác nhận điều kiện giải ngân đợt 2 (`40%`) dựa trên biên bản nghiệm thu điện tử.\n- **Đề xuất lịch họp:** `09:30 – 10:30`, thứ Năm ngày **26-11-2026** tại phòng họp trực tuyến.\n- **Tệp đính kèm:** Đã tách bản PDF đối chiếu công nợ sang danh sách tài nguyên dự án.',
-          'gạch đầu dòng':
-            '- Người gửi: Giám đốc Mua hàng Minh Khôi (khách).\n- Mục tiêu: Thống nhất biên bản nghiệm thu đợt 2.\n- Đề xuất giờ họp: 26-11-2026, 09:30–10:30.\n- Lưu ý: Có xung đột với lịch rà soát hiện tại nếu không gộp phiên.',
-        },
+        summaryMarkdown: '### Tóm tắt Email từ Đối tác Minh Khôi\n- **Yêu cầu chính:** Xác nhận điều kiện giải ngân đợt 2 (`40%`) dựa trên biên bản nghiệm thu điện tử.\n- **Đề xuất lịch họp:** `09:30 – 10:30`, thứ Năm ngày **26-11-2026** tại phòng họp trực tuyến.\n- **Tệp đính kèm:** Đã tách bản PDF đối chiếu công nợ sang danh sách tài nguyên dự án.',
         solutions: [
           {
             id: 'sol-p1-2-a',
@@ -732,15 +716,7 @@ export const INITIAL_PROJECTS: Project[] = [
         pages: MOCK_PDF_BIEN_BAN_OCR,
         createdAt: '2026-11-16T11:00:00.000Z',
         selected: false,
-        activeSummaryStyle: 'ý chính',
-        summaryByStyle: {
-          ngắn:
-            'Bản scan đã chạy OCR xác nhận hai bên đã hoàn tất khảo sát hiện trường ngày 18-10-2026 và thống nhất danh mục 14 đầu việc bàn giao.',
-          'ý chính':
-            '### Tóm tắt Biên bản (OCR hoàn tất)\n- **Phạm vi:** 14 hạng mục triển khai phần mềm và đào tạo vận hành tại 3 chi nhánh [tr. 2–6].\n- **Xác nhận hiện trường:** Đã có chữ ký nháy của đại diện hai bên ngày **18-10-2026** [tr. 9].',
-          'gạch đầu dòng':
-            '- Loại tệp: PDF scan (đã qua OCR cục bộ).\n- Số hạng mục thống nhất: 14 đầu việc.\n- Thời điểm ký nháy: 18-10-2026.',
-        },
+        summaryMarkdown: '### Tóm tắt Biên bản (OCR hoàn tất)\n- **Phạm vi:** 14 hạng mục triển khai phần mềm và đào tạo vận hành tại 3 chi nhánh [tr. 2–6].\n- **Xác nhận hiện trường:** Đã có chữ ký nháy của đại diện hai bên ngày **18-10-2026** [tr. 9].',
         solutions: [
           {
             id: 'sol-p1-3-a',
@@ -780,15 +756,7 @@ export const INITIAL_PROJECTS: Project[] = [
         folderName: 'INBOX/HopDong-Q4',
         createdAt: '2026-11-15T16:40:00.000Z',
         selected: false,
-        activeSummaryStyle: 'ý chính',
-        summaryByStyle: {
-          ngắn:
-            'Pháp chế nội bộ lưu ý trần phạt `8%` là hợp lệ theo Luật Thương mại, nhưng đề nghị tách riêng thời gian chờ dữ liệu từ khách hàng khỏi thời gian tính chậm.',
-          'ý chính':
-            '### Góp ý từ Pháp chế Nội bộ\n- Mức phạt `0,05%/ngày` và trần `8%` phù hợp khung quy định hiện hành.\n- Cần bổ sung câu: *"Thời gian chờ phản hồi hoặc cấp quyền từ Bên A không tính vào tiến độ của Bên B"*.',
-          'gạch đầu dòng':
-            '- Trần phạt 8%: đạt chuẩn.\n- Kiến nghị bổ sung: loại trừ thời gian chờ Bên A.\n- Cần hoàn tất chỉnh sửa trước khi gửi bản chốt.',
-        },
+        summaryMarkdown: '### Góp ý từ Pháp chế Nội bộ\n- Mức phạt `0,05%/ngày` và trần `8%` phù hợp khung quy định hiện hành.\n- Cần bổ sung câu: *"Thời gian chờ phản hồi hoặc cấp quyền từ Bên A không tính vào tiến độ của Bên B"*.',
         solutions: [
           {
             id: 'sol-p1-4-a',
@@ -850,15 +818,7 @@ export const INITIAL_PROJECTS: Project[] = [
         pages: MOCK_PDF_LAUNCH_V2,
         createdAt: '2026-11-23T09:00:00.000Z',
         selected: true,
-        activeSummaryStyle: 'ý chính',
-        summaryByStyle: {
-          ngắn:
-            'Kế hoạch ra mắt ngày **12-12-2026** với ngân sách **320 triệu VNĐ**, tập trung vào hội thảo khách hàng doanh nghiệp và chuỗi demo trực tiếp.',
-          'ý chính':
-            '### Kế hoạch Truyền thông Ra mắt\n- **Ngày sự kiện:** **12-12-2026** tại Hà Nội & livestream toàn quốc [tr. 2].\n- **Ngân sách dự kiến:** `320 triệu VNĐ` (55% sự kiện, 30% nội dung kỹ thuật, 15% dự phòng) [tr. 9].\n- **Mục tiêu:** 150 khách mời doanh nghiệp và 40 lịch demo sau sự kiện [tr. 4].',
-          'gạch đầu dòng':
-            '- Thời điểm ra mắt: 12-12-2026 [tr. 2].\n- Tổng ngân sách: 320 triệu VNĐ [tr. 9].\n- Hạn khóa danh sách khách mời: 03-12-2026 [tr. 6].',
-        },
+        summaryMarkdown: '### Kế hoạch Truyền thông Ra mắt\n- **Ngày sự kiện:** **12-12-2026** tại Hà Nội & livestream toàn quốc [tr. 2].\n- **Ngân sách dự kiến:** `320 triệu VNĐ` (55% sự kiện, 30% nội dung kỹ thuật, 15% dự phòng) [tr. 9].\n- **Mục tiêu:** 150 khách mời doanh nghiệp và 40 lịch demo sau sự kiện [tr. 4].',
         solutions: [
           {
             id: 'sol-p2-1-a',
@@ -898,15 +858,7 @@ export const INITIAL_PROJECTS: Project[] = [
         folderName: 'INBOX/Launch-2026',
         createdAt: '2026-11-22T15:20:00.000Z',
         selected: true,
-        activeSummaryStyle: 'ý chính',
-        summaryByStyle: {
-          ngắn:
-            'Agency gửi báo giá cập nhật **172 triệu VNĐ** (giảm 8 triệu so với bản 1), cần xác nhận đặt cọc trước **30-11-2026** để giữ hội trường.',
-          'ý chính':
-            '### Cập nhật Báo giá từ Agency\n- Tổng hạng mục sân khấu & livestream: **172 triệu VNĐ** (trong hạn mức 55% ngân sách).\n- Hạn xác nhận giữ địa điểm: **30-11-2026**.',
-          'gạch đầu dòng':
-            '- Chi phí mới: 172 triệu VNĐ (-8 triệu).\n- Hạn đặt cọc giữ sảnh: 30-11-2026.',
-        },
+        summaryMarkdown: '### Cập nhật Báo giá từ Agency\n- Tổng hạng mục sân khấu & livestream: **172 triệu VNĐ** (trong hạn mức 55% ngân sách).\n- Hạn xác nhận giữ địa điểm: **30-11-2026**.',
         solutions: [
           {
             id: 'sol-p2-2-a',
@@ -969,15 +921,7 @@ export const INITIAL_PROJECTS: Project[] = [
         pages: MOCK_PDF_AUDIT_2026,
         createdAt: '2026-11-19T08:45:00.000Z',
         selected: true,
-        activeSummaryStyle: 'ý chính',
-        summaryByStyle: {
-          ngắn:
-            'Danh mục gồm 27 nhóm chứng từ cần nộp trước **05-12-2026**, trọng tâm vào kiểm soát truy cập dữ liệu và chứng từ chi phí phần mềm.',
-          'ý chính':
-            '### Danh mục Kiểm toán 2026\n- **Tổng số hồ sơ:** 27 nhóm chứng từ thuộc Tài chính, Nhân sự và CNTT [tr. 1–4].\n- **Điểm ưu tiên cao:** Nhật ký phân quyền truy cập dữ liệu nội bộ và biên bản sao lưu định kỳ [tr. 22–28].',
-          'gạch đầu dòng':
-            '- Hạn bàn giao hồ sơ: 05-12-2026.\n- 3 phòng ban phối hợp: Tài chính, Nhân sự, CNTT.\n- Kiểm tra thực địa: 09-12 đến 11-12-2026.',
-        },
+        summaryMarkdown: '### Danh mục Kiểm toán 2026\n- **Tổng số hồ sơ:** 27 nhóm chứng từ thuộc Tài chính, Nhân sự và CNTT [tr. 1–4].\n- **Điểm ưu tiên cao:** Nhật ký phân quyền truy cập dữ liệu nội bộ và biên bản sao lưu định kỳ [tr. 22–28].',
         solutions: [
           {
             id: 'sol-p3-1-a',
@@ -1036,15 +980,7 @@ export const INITIAL_PROJECTS: Project[] = [
         folderName: 'INBOX/HR-AI-2026',
         createdAt: '2026-11-21T11:30:00.000Z',
         selected: true,
-        activeSummaryStyle: 'ngắn',
-        summaryByStyle: {
-          ngắn:
-            'Đã lọc được 6 ứng viên đạt yêu cầu về Python & tối ưu inference local (vLLM/Ollama), đề xuất xếp lịch phỏng vấn từ **25-11 đến 27-11**.',
-          'ý chính':
-            '### Danh sách Vòng Kỹ thuật\n- **Số lượng:** 6 ứng viên (4 Senior, 2 Middle).\n- **Thế mạnh nổi bật:** 3 ứng viên có kinh nghiệm triển khai QLoRA và tối ưu KV-cache.',
-          'gạch đầu dòng':
-            '- 6 ứng viên đạt vòng CV.\n- Đề xuất phỏng vấn: 25-11 đến 27-11.\n- Cần chốt hội đồng phỏng vấn kỹ thuật.',
-        },
+        summaryMarkdown: '### Danh sách Vòng Kỹ thuật\n- **Số lượng:** 6 ứng viên (4 Senior, 2 Middle).\n- **Thế mạnh nổi bật:** 3 ứng viên có kinh nghiệm triển khai QLoRA và tối ưu KV-cache.',
         solutions: [
           {
             id: 'sol-p4-1-a',
@@ -1105,15 +1041,7 @@ export const INITIAL_PROJECTS: Project[] = [
         pages: MOCK_PDF_FINANCE_T10,
         createdAt: '2026-11-10T10:15:00.000Z',
         selected: true,
-        activeSummaryStyle: 'ý chính',
-        summaryByStyle: {
-          ngắn:
-            'Dòng tiền thuần tháng 10 đạt dương **+2,1 tỷ VNĐ**, chi phí hạ tầng máy chủ giảm **18%** sau khi chuyển các tác vụ tóm tắt sang mô hình cục bộ.',
-          'ý chính':
-            '### Điểm sáng Dòng tiền Tháng 10\n- **Dòng tiền thuần:** `+2,1 tỷ VNĐ` (vượt kế hoạch 12%) [tr. 2].\n- **Tiết kiệm vận hành:** Chi phí API giảm `18%` nhờ triển khai Local LLM nội bộ [tr. 7].\n- **Công nợ phải thu:** Còn 2 khoản quá hạn >15 ngày cần nhắc thu trước 30-11 [tr. 10].',
-          'gạch đầu dòng':
-            '- Dòng tiền thuần: +2,1 tỷ VNĐ.\n- Chi phí API giảm 18%.\n- 2 khoản công nợ cần đối chiếu trước 30-11.',
-        },
+        summaryMarkdown: '### Điểm sáng Dòng tiền Tháng 10\n- **Dòng tiền thuần:** `+2,1 tỷ VNĐ` (vượt kế hoạch 12%) [tr. 2].\n- **Tiết kiệm vận hành:** Chi phí API giảm `18%` nhờ triển khai Local LLM nội bộ [tr. 7].\n- **Công nợ phải thu:** Còn 2 khoản quá hạn >15 ngày cần nhắc thu trước 30-11 [tr. 10].',
         solutions: [
           {
             id: 'sol-p5-1-a',

@@ -60,9 +60,8 @@ export function ProjectDetailPage() {
       return mailOverviewReport?.reportPdf ?? null;
     }
     return (
-      project.resources.find(
-        (r): r is PdfResource => r.type === 'pdf' && r.id === pdfViewer.resourceId
-      ) ?? null
+      project.resources.flatMap((r): PdfResource[] => r.type === 'pdf' ? [r] : r.attachedPdfs || [])
+        .find((r) => r.id === pdfViewer.resourceId) ?? null
     );
   }, [project, pdfViewer, mailOverviewReport]);
 
@@ -103,10 +102,10 @@ export function ProjectDetailPage() {
     [containerWidth, minLeftWidth, minRightWidth]
   );
 
-  // Default width of right panel = exact max-content width (minRightWidth), or clamped user-dragged width
+  // Add breathing room on initial open; keep manual sizing and viewport bounds.
   const effectiveRightWidth = useMemo(() => {
     const base =
-      userRightWidth ?? (activePdfForViewer ? Math.max(minRightWidth, 540) : minRightWidth);
+      userRightWidth ?? ((activePdfForViewer ? Math.max(minRightWidth, 540) : minRightWidth) + 50);
     return clampRightWidth(base);
   }, [userRightWidth, activePdfForViewer, minRightWidth, clampRightWidth]);
 
@@ -250,8 +249,8 @@ export function ProjectDetailPage() {
           {/* Icon-only PDF overview report toggle button (mutually exclusive with Tài nguyên) */}
           <button
             type="button"
-            aria-label="Xem báo cáo PDF tổng quan 3 mail gần nhất"
-            title="Báo cáo tổng quan 3 mail gần nhất (PDF)"
+            aria-label="Xem báo cáo PDF tổng quan trong ngày"
+            title="Báo cáo tổng quan trong ngày (PDF)"
             aria-pressed={isMailReportOpen}
             onClick={() => {
               if (isMailReportOpen) {
