@@ -1,0 +1,1105 @@
+{
+  "$schema": "https://design-tokens.github.io/community-group/format/",
+  "$description": "Source-grounded design token extraction from the user-supplied Color Design System SVG and Typography specimen Light/Dark SVG. Values not defined by the SVGs are intentionally not invented.",
+  "$extensions": {
+    "sources": [
+      {
+        "file": "design-system(1).svg",
+        "viewBox": "0 0 1440 1240"
+      },
+      {
+        "file": "typography-specimen-dark(1).svg",
+        "viewBox": "0 0 1440 3950"
+      }
+    ],
+    "application": "SaaS business tool",
+    "language": [
+      "vi",
+      "Latin"
+    ],
+    "sourceRules": {
+      "paletteShadeWeights": [
+        100,
+        300,
+        500,
+        700,
+        900
+      ],
+      "neutral": "white and black separate pure grayscale scales",
+      "typeScaleRatioDeclared": 1.25,
+      "bodyM": "16px/24px",
+      "textRendering": "optimizeLegibility",
+      "fontLoading": "not embedded; must be installed or provided by environment"
+    },
+    "usageRules": {
+      "do": [
+        "Keep content lines approximately 45–75 characters",
+        "Use at most three font weights per screen",
+        "Use 16px/24px for dashboard body text"
+      ],
+      "dont": [
+        "Do not uppercase long paragraphs",
+        "Do not use text under 12px or reduce readability",
+        "Do not use Lora as a monospace code font"
+      ]
+    },
+    "notSpecified": {
+      "spacingScale": "Not specified as a reusable scale (only specimen positioning is present)",
+      "radiusScale": "Not specified as a universal scale; radius 5, 12, 20, and marker 3 observed in different specimens",
+      "elevation": "No shadow token specified",
+      "breakpoints": "No responsive breakpoint values specified",
+      "motion": "No duration, easing or animation tokens specified",
+      "opacityScale": "No general opacity scale (only 0.07 swatch outline opacity observed)",
+      "zIndex": "No layering index tokens specified",
+      "componentStates": "No complete hover, focus, disabled, active, pressed state matrix specified",
+      "componentDimensions": "Only hierarchy/usage cards and some swatch dimensions observed; no universal component system",
+      "darkGlobalTheme": "Only dark hierarchy card is specified; a complete app-wide dark theme is not specified",
+      "fontVerification": "Source SVG does not embed fonts and does not independently verify installed files, Vietnamese coverage, glyph metrics or license",
+      "typographyScaleRatio": "Specimen declares ratio 1.25, but several 12-14px functional styles are explicit exceptions; values preserved exactly",
+      "fontRendering": "Typeface metrics are environment-dependent; SVG requests text-rendering optimizeLegibility"
+    },
+    "specimenStyles": {
+      "cssVariablesAsWritten": {
+        "--bg": {
+          "$type": "color",
+          "$value": "#FFFFFF"
+        },
+        "--surface": {
+          "$type": "color",
+          "$value": "#F5F5F5"
+        },
+        "--text": {
+          "$type": "color",
+          "$value": "#14213D"
+        },
+        "--text-muted": {
+          "$type": "color",
+          "$value": "#4D5565"
+        },
+        "--border": {
+          "$type": "color",
+          "$value": "#D1D5DB"
+        },
+        "--accent": {
+          "$type": "color",
+          "$value": "#FCA311"
+        }
+      },
+      "classDeclarationsAsWritten": {
+        "bg": {
+          "fill": "var(--bg)"
+        },
+        "muted": {
+          "fill": "var(--text-muted)"
+        },
+        "index": {
+          "font-size": "12px",
+          "font-weight": "700",
+          "letter-spacing": ".08em",
+          "fill": "var(--text-muted)"
+        },
+        "section": {
+          "font-size": "23px",
+          "font-weight": "700",
+          "letter-spacing": "-.01em"
+        },
+        "meta": {
+          "font-size": "13px",
+          "fill": "var(--text-muted)"
+        },
+        "eyebrow": {
+          "font-size": "12px",
+          "font-weight": "700",
+          "letter-spacing": ".08em",
+          "fill": "var(--text-muted)"
+        },
+        "hero-title": {
+          "font-size": "64px",
+          "font-weight": "700",
+          "letter-spacing": "-.03em"
+        },
+        "hero-glyph": {
+          "font-size": "200px",
+          "font-weight": "700",
+          "letter-spacing": "-.03em"
+        },
+        "t-display": {
+          "font-size": "49px",
+          "line-height": "56px",
+          "font-weight": "700",
+          "letter-spacing": "-.03em"
+        },
+        "t-h1": {
+          "font-size": "39px",
+          "font-weight": "700",
+          "letter-spacing": "-.025em"
+        },
+        "t-h2": {
+          "font-size": "31px",
+          "font-weight": "700",
+          "letter-spacing": "-.02em"
+        },
+        "t-h3": {
+          "font-size": "25px",
+          "font-weight": "700",
+          "letter-spacing": "-.01em"
+        },
+        "t-h4": {
+          "font-size": "20px",
+          "font-weight": "600",
+          "letter-spacing": "0"
+        },
+        "t-body-l": {
+          "font-size": "20px",
+          "font-weight": "400"
+        },
+        "t-body-m": {
+          "font-size": "16px",
+          "font-weight": "400"
+        },
+        "t-body-s": {
+          "font-size": "13px",
+          "font-weight": "400"
+        },
+        "t-caption": {
+          "font-size": "12px",
+          "font-weight": "500",
+          "letter-spacing": ".04em"
+        },
+        "t-overline": {
+          "font-size": "12px",
+          "font-weight": "700",
+          "letter-spacing": ".08em"
+        },
+        "t-button": {
+          "font-size": "14px",
+          "font-weight": "600"
+        },
+        "t-code": {
+          "font-size": "13px",
+          "font-weight": "400",
+          "font-family": "ui-monospace,'SFMono-Regular',Consolas,'Liberation Mono',monospace"
+        },
+        "serif": {
+          "font-family": "'Lora',Georgia,'Times New Roman',serif"
+        },
+        "w400": {
+          "font-weight": "400"
+        },
+        "w500": {
+          "font-weight": "500"
+        },
+        "w600": {
+          "font-weight": "600"
+        },
+        "w700": {
+          "font-weight": "700"
+        },
+        "label": {
+          "font-size": "14px",
+          "font-weight": "600"
+        },
+        "small": {
+          "font-size": "12px",
+          "fill": "var(--text-muted)"
+        },
+        "glyphline": {
+          "font-size": "25px",
+          "font-weight": "500",
+          "letter-spacing": ".035em"
+        },
+        "glyphvi": {
+          "font-size": "18px",
+          "font-weight": "500"
+        },
+        "table-head": {
+          "font-size": "12px",
+          "font-weight": "700",
+          "letter-spacing": ".05em",
+          "fill": "var(--text-muted)"
+        },
+        "table-cell": {
+          "font-size": "13px",
+          "font-weight": "500"
+        },
+        "table-code": {
+          "font-size": "12px",
+          "font-family": "ui-monospace,Consolas,monospace"
+        },
+        "white": {
+          "fill": "#FFFFFF"
+        },
+        "accent-fill": {
+          "fill": "var(--accent)"
+        },
+        "dark-surface": {
+          "fill": "var(--text)"
+        },
+        "dark-text": {
+          "fill": "#FFFFFF"
+        },
+        "dark-muted": {
+          "fill": "#E5E5E5"
+        },
+        "dark-eyebrow": {
+          "fill": "#E5E5E5",
+          "font-size": "12px",
+          "font-weight": "700",
+          "letter-spacing": ".08em"
+        }
+      },
+      "colorSvgAdditionalColors": {
+        "canvas": {
+          "$type": "color",
+          "$value": "#F7F8FA",
+          "$description": "Specimen-only literal, not a canonical palette swatch"
+        },
+        "subtitle": {
+          "$type": "color",
+          "$value": "#586274",
+          "$description": "Specimen-only literal, not a canonical palette swatch"
+        },
+        "separator": {
+          "$type": "color",
+          "$value": "#DFE3E9",
+          "$description": "Specimen-only literal, not a canonical palette swatch"
+        },
+        "cardStroke": {
+          "$type": "color",
+          "$value": "#E3E6EB",
+          "$description": "Specimen-only literal, not a canonical palette swatch"
+        },
+        "description": {
+          "$type": "color",
+          "$value": "#687487",
+          "$description": "Specimen-only literal, not a canonical palette swatch"
+        },
+        "sectionLabel": {
+          "$type": "color",
+          "$value": "#647084",
+          "$description": "Specimen-only literal, not a canonical palette swatch"
+        },
+        "swatchTextDark": {
+          "$type": "color",
+          "$value": "#122038",
+          "$description": "Specimen-only literal, not a canonical palette swatch"
+        },
+        "neutralMarker": {
+          "$type": "color",
+          "$value": "#999999",
+          "$description": "Specimen-only literal, not a canonical palette swatch"
+        },
+        "swatchBorder": {
+          "$type": "color",
+          "$value": "#000000",
+          "$description": "Specimen-only literal, not a canonical palette swatch"
+        },
+        "white": {
+          "$type": "color",
+          "$value": "#FFFFFF",
+          "$description": "Specimen-only literal, not a canonical palette swatch"
+        }
+      }
+    },
+    "observedPattern": {
+      "hierarchyExample": {
+        "light": {
+          "surface": "#F5F5F5",
+          "heading": "#14213D",
+          "body": "#14213D",
+          "ctaBackground": "#FCA311",
+          "ctaText": "#14213D"
+        },
+        "dark": {
+          "surface": "#14213D",
+          "heading": "#FFFFFF",
+          "body": "#E5E5E5",
+          "ctaBackground": "#FCA311",
+          "ctaText": "#14213D"
+        }
+      },
+      "colorRoles": {
+        "primary": "Core surfaces, navigation, headings and primary actions",
+        "accent": "Highlights, active states, links and key calls to action",
+        "success": "Completed tasks, positive feedback and valid inputs",
+        "warning": "Caution notices, pending states and recoverable issues",
+        "destroy": "Destructive actions, failures and critical errors"
+      }
+    },
+    "validation": {
+      "canonicalPaletteSwatches": 40,
+      "typographyTextStyles": 12,
+      "fontWeights": 4
+    }
+  },
+  "palette": {
+    "primary": {
+      "$description": "Core surfaces, navigation, headings and primary actions",
+      "100": {
+        "$type": "color",
+        "$value": "#E8ECF4"
+      },
+      "300": {
+        "$type": "color",
+        "$value": "#A8B5CE"
+      },
+      "500": {
+        "$type": "color",
+        "$value": "#14213D"
+      },
+      "700": {
+        "$type": "color",
+        "$value": "#0E1830"
+      },
+      "900": {
+        "$type": "color",
+        "$value": "#070E1F"
+      }
+    },
+    "accent": {
+      "$description": "Highlights, active states, links and key calls to action",
+      "100": {
+        "$type": "color",
+        "$value": "#FFF3DD"
+      },
+      "300": {
+        "$type": "color",
+        "$value": "#FFD595"
+      },
+      "500": {
+        "$type": "color",
+        "$value": "#FCA311"
+      },
+      "700": {
+        "$type": "color",
+        "$value": "#CB7C00"
+      },
+      "900": {
+        "$type": "color",
+        "$value": "#804600"
+      }
+    },
+    "success": {
+      "$description": "Completed tasks, positive feedback and valid inputs",
+      "100": {
+        "$type": "color",
+        "$value": "#E3F8EB"
+      },
+      "300": {
+        "$type": "color",
+        "$value": "#A6E4BD"
+      },
+      "500": {
+        "$type": "color",
+        "$value": "#2DA96B"
+      },
+      "700": {
+        "$type": "color",
+        "$value": "#197A49"
+      },
+      "900": {
+        "$type": "color",
+        "$value": "#0D462C"
+      }
+    },
+    "warning": {
+      "$description": "Caution notices, pending states and recoverable issues",
+      "100": {
+        "$type": "color",
+        "$value": "#FFF5D6"
+      },
+      "300": {
+        "$type": "color",
+        "$value": "#FFE08A"
+      },
+      "500": {
+        "$type": "color",
+        "$value": "#F5BE38"
+      },
+      "700": {
+        "$type": "color",
+        "$value": "#B9850B"
+      },
+      "900": {
+        "$type": "color",
+        "$value": "#704B06"
+      }
+    },
+    "destroy": {
+      "$description": "Destructive actions, failures and critical errors",
+      "100": {
+        "$type": "color",
+        "$value": "#FFE8E5"
+      },
+      "300": {
+        "$type": "color",
+        "$value": "#F5AFA9"
+      },
+      "500": {
+        "$type": "color",
+        "$value": "#E34D45"
+      },
+      "700": {
+        "$type": "color",
+        "$value": "#AD2928"
+      },
+      "900": {
+        "$type": "color",
+        "$value": "#651619"
+      }
+    },
+    "neutral": {
+      "white": {
+        "100": {
+          "$type": "color",
+          "$value": "#FFFFFF"
+        },
+        "300": {
+          "$type": "color",
+          "$value": "#F2F2F2"
+        },
+        "500": {
+          "$type": "color",
+          "$value": "#E6E6E6"
+        },
+        "700": {
+          "$type": "color",
+          "$value": "#D9D9D9"
+        },
+        "900": {
+          "$type": "color",
+          "$value": "#CCCCCC"
+        }
+      },
+      "black": {
+        "100": {
+          "$type": "color",
+          "$value": "#CCCCCC"
+        },
+        "300": {
+          "$type": "color",
+          "$value": "#999999"
+        },
+        "500": {
+          "$type": "color",
+          "$value": "#666666"
+        },
+        "700": {
+          "$type": "color",
+          "$value": "#333333"
+        },
+        "900": {
+          "$type": "color",
+          "$value": "#000000"
+        }
+      }
+    }
+  },
+  "font": {
+    "family": {
+      "sans": {
+        "$type": "fontFamily",
+        "$value": [
+          "Plus Jakarta Sans",
+          "system-ui",
+          "-apple-system",
+          "Segoe UI",
+          "sans-serif"
+        ],
+        "$description": "Primary Latin/Vietnamese UI; derived from SVG text CSS"
+      },
+      "serif": {
+        "$type": "fontFamily",
+        "$value": [
+          "Lora",
+          "Georgia",
+          "Times New Roman",
+          "serif"
+        ],
+        "$description": "Secondary serif for editorial accents"
+      },
+      "mono": {
+        "$type": "fontFamily",
+        "$value": [
+          "ui-monospace",
+          "SFMono-Regular",
+          "Consolas",
+          "Liberation Mono",
+          "monospace"
+        ],
+        "$description": "Code uses system monospace; not Lora"
+      }
+    },
+    "weight": {
+      "400": {
+        "$type": "fontWeight",
+        "$value": 400,
+        "$description": "Regular"
+      },
+      "500": {
+        "$type": "fontWeight",
+        "$value": 500,
+        "$description": "Medium"
+      },
+      "600": {
+        "$type": "fontWeight",
+        "$value": 600,
+        "$description": "SemiBold"
+      },
+      "700": {
+        "$type": "fontWeight",
+        "$value": 700,
+        "$description": "Bold"
+      }
+    }
+  },
+  "type": {
+    "display": {
+      "fontFamily": {
+        "$type": "fontFamily",
+        "$value": "{font.family.sans}"
+      },
+      "fontSize": {
+        "$type": "dimension",
+        "$value": "49px"
+      },
+      "lineHeight": {
+        "$type": "dimension",
+        "$value": "56px"
+      },
+      "fontWeight": {
+        "$type": "fontWeight",
+        "$value": 700
+      },
+      "letterSpacing": {
+        "$type": "dimension",
+        "$value": "-0.03em"
+      },
+      "$description": "Explicit type.display row in typography SVG developer token table"
+    },
+    "h1": {
+      "fontFamily": {
+        "$type": "fontFamily",
+        "$value": "{font.family.sans}"
+      },
+      "fontSize": {
+        "$type": "dimension",
+        "$value": "39px"
+      },
+      "lineHeight": {
+        "$type": "dimension",
+        "$value": "48px"
+      },
+      "fontWeight": {
+        "$type": "fontWeight",
+        "$value": 700
+      },
+      "letterSpacing": {
+        "$type": "dimension",
+        "$value": "-0.025em"
+      },
+      "$description": "Explicit type.h1 row in typography SVG developer token table"
+    },
+    "h2": {
+      "fontFamily": {
+        "$type": "fontFamily",
+        "$value": "{font.family.sans}"
+      },
+      "fontSize": {
+        "$type": "dimension",
+        "$value": "31px"
+      },
+      "lineHeight": {
+        "$type": "dimension",
+        "$value": "40px"
+      },
+      "fontWeight": {
+        "$type": "fontWeight",
+        "$value": 700
+      },
+      "letterSpacing": {
+        "$type": "dimension",
+        "$value": "-0.02em"
+      },
+      "$description": "Explicit type.h2 row in typography SVG developer token table"
+    },
+    "h3": {
+      "fontFamily": {
+        "$type": "fontFamily",
+        "$value": "{font.family.sans}"
+      },
+      "fontSize": {
+        "$type": "dimension",
+        "$value": "25px"
+      },
+      "lineHeight": {
+        "$type": "dimension",
+        "$value": "32px"
+      },
+      "fontWeight": {
+        "$type": "fontWeight",
+        "$value": 700
+      },
+      "letterSpacing": {
+        "$type": "dimension",
+        "$value": "-0.01em"
+      },
+      "$description": "Explicit type.h3 row in typography SVG developer token table"
+    },
+    "h4": {
+      "fontFamily": {
+        "$type": "fontFamily",
+        "$value": "{font.family.sans}"
+      },
+      "fontSize": {
+        "$type": "dimension",
+        "$value": "20px"
+      },
+      "lineHeight": {
+        "$type": "dimension",
+        "$value": "24px"
+      },
+      "fontWeight": {
+        "$type": "fontWeight",
+        "$value": 600
+      },
+      "letterSpacing": {
+        "$type": "dimension",
+        "$value": "0em"
+      },
+      "$description": "Explicit type.h4 row in typography SVG developer token table"
+    },
+    "body-l": {
+      "fontFamily": {
+        "$type": "fontFamily",
+        "$value": "{font.family.sans}"
+      },
+      "fontSize": {
+        "$type": "dimension",
+        "$value": "20px"
+      },
+      "lineHeight": {
+        "$type": "dimension",
+        "$value": "32px"
+      },
+      "fontWeight": {
+        "$type": "fontWeight",
+        "$value": 400
+      },
+      "letterSpacing": {
+        "$type": "dimension",
+        "$value": "0em"
+      },
+      "$description": "Explicit type.body-l row in typography SVG developer token table"
+    },
+    "body-m": {
+      "fontFamily": {
+        "$type": "fontFamily",
+        "$value": "{font.family.sans}"
+      },
+      "fontSize": {
+        "$type": "dimension",
+        "$value": "16px"
+      },
+      "lineHeight": {
+        "$type": "dimension",
+        "$value": "24px"
+      },
+      "fontWeight": {
+        "$type": "fontWeight",
+        "$value": 400
+      },
+      "letterSpacing": {
+        "$type": "dimension",
+        "$value": "0em"
+      },
+      "$description": "Explicit type.body-m row in typography SVG developer token table"
+    },
+    "body-s": {
+      "fontFamily": {
+        "$type": "fontFamily",
+        "$value": "{font.family.sans}"
+      },
+      "fontSize": {
+        "$type": "dimension",
+        "$value": "13px"
+      },
+      "lineHeight": {
+        "$type": "dimension",
+        "$value": "20px"
+      },
+      "fontWeight": {
+        "$type": "fontWeight",
+        "$value": 400
+      },
+      "letterSpacing": {
+        "$type": "dimension",
+        "$value": "0em"
+      },
+      "$description": "Explicit type.body-s row in typography SVG developer token table"
+    },
+    "caption": {
+      "fontFamily": {
+        "$type": "fontFamily",
+        "$value": "{font.family.sans}"
+      },
+      "fontSize": {
+        "$type": "dimension",
+        "$value": "12px"
+      },
+      "lineHeight": {
+        "$type": "dimension",
+        "$value": "20px"
+      },
+      "fontWeight": {
+        "$type": "fontWeight",
+        "$value": 500
+      },
+      "letterSpacing": {
+        "$type": "dimension",
+        "$value": "0.04em"
+      },
+      "$description": "Explicit type.caption row in typography SVG developer token table"
+    },
+    "overline": {
+      "fontFamily": {
+        "$type": "fontFamily",
+        "$value": "{font.family.sans}"
+      },
+      "fontSize": {
+        "$type": "dimension",
+        "$value": "12px"
+      },
+      "lineHeight": {
+        "$type": "dimension",
+        "$value": "16px"
+      },
+      "fontWeight": {
+        "$type": "fontWeight",
+        "$value": 700
+      },
+      "letterSpacing": {
+        "$type": "dimension",
+        "$value": "0.08em"
+      },
+      "$description": "Explicit type.overline row in typography SVG developer token table"
+    },
+    "button": {
+      "fontFamily": {
+        "$type": "fontFamily",
+        "$value": "{font.family.sans}"
+      },
+      "fontSize": {
+        "$type": "dimension",
+        "$value": "14px"
+      },
+      "lineHeight": {
+        "$type": "dimension",
+        "$value": "20px"
+      },
+      "fontWeight": {
+        "$type": "fontWeight",
+        "$value": 600
+      },
+      "letterSpacing": {
+        "$type": "dimension",
+        "$value": "0em"
+      },
+      "$description": "Explicit type.button row in typography SVG developer token table"
+    },
+    "code": {
+      "fontFamily": {
+        "$type": "fontFamily",
+        "$value": "{font.family.mono}"
+      },
+      "fontSize": {
+        "$type": "dimension",
+        "$value": "13px"
+      },
+      "lineHeight": {
+        "$type": "dimension",
+        "$value": "20px"
+      },
+      "fontWeight": {
+        "$type": "fontWeight",
+        "$value": 400
+      },
+      "letterSpacing": {
+        "$type": "dimension",
+        "$value": "0em"
+      },
+      "$description": "Explicit type.code row in typography SVG developer token table"
+    }
+  },
+  "semantic": {
+    "color": {
+      "light": {
+        "background": {
+          "$type": "color",
+          "$value": "{palette.neutral.white.100}",
+          "$description": "White page background in typography SVG"
+        },
+        "surface": {
+          "$type": "color",
+          "$value": "#F5F5F5",
+          "$description": "Observed light card surface; separate from grayscale neutral steps"
+        },
+        "text": {
+          "$type": "color",
+          "$value": "{palette.primary.500}"
+        },
+        "textMuted": {
+          "$type": "color",
+          "$value": "#4D5565"
+        },
+        "border": {
+          "$type": "color",
+          "$value": "#D1D5DB"
+        },
+        "accent": {
+          "$type": "color",
+          "$value": "{palette.accent.500}"
+        },
+        "action": {
+          "background": {
+            "$type": "color",
+            "$value": "{palette.accent.500}"
+          },
+          "label": {
+            "$type": "color",
+            "$value": "{palette.primary.500}",
+            "$description": "Observed CTA text inherits global text fill"
+          }
+        }
+      },
+      "dark": {
+        "surface": {
+          "$type": "color",
+          "$value": "{palette.primary.500}",
+          "$description": "Observed dark hierarchy card surface, not established as global dark application background"
+        },
+        "text": {
+          "$type": "color",
+          "$value": "{palette.neutral.white.100}"
+        },
+        "textMuted": {
+          "$type": "color",
+          "$value": "#E5E5E5",
+          "$description": "Explicit .dark-muted in SVG (#E5E5E5), not palette.neutral.white.500 (#E6E6E6)"
+        },
+        "eyebrow": {
+          "$type": "color",
+          "$value": "#E5E5E5"
+        },
+        "accent": {
+          "$type": "color",
+          "$value": "{palette.accent.500}"
+        },
+        "action": {
+          "background": {
+            "$type": "color",
+            "$value": "{palette.accent.500}"
+          },
+          "label": {
+            "$type": "color",
+            "$value": "{palette.primary.500}"
+          }
+        }
+      }
+    },
+    "status": {
+      "success": {
+        "background": {
+          "$type": "color",
+          "$value": "{palette.success.100}"
+        },
+        "subtle": {
+          "$type": "color",
+          "$value": "{palette.success.300}"
+        },
+        "base": {
+          "$type": "color",
+          "$value": "{palette.success.500}"
+        },
+        "strong": {
+          "$type": "color",
+          "$value": "{palette.success.700}"
+        },
+        "emphasis": {
+          "$type": "color",
+          "$value": "{palette.success.900}"
+        }
+      },
+      "warning": {
+        "background": {
+          "$type": "color",
+          "$value": "{palette.warning.100}"
+        },
+        "subtle": {
+          "$type": "color",
+          "$value": "{palette.warning.300}"
+        },
+        "base": {
+          "$type": "color",
+          "$value": "{palette.warning.500}"
+        },
+        "strong": {
+          "$type": "color",
+          "$value": "{palette.warning.700}"
+        },
+        "emphasis": {
+          "$type": "color",
+          "$value": "{palette.warning.900}"
+        }
+      },
+      "destroy": {
+        "background": {
+          "$type": "color",
+          "$value": "{palette.destroy.100}"
+        },
+        "subtle": {
+          "$type": "color",
+          "$value": "{palette.destroy.300}"
+        },
+        "base": {
+          "$type": "color",
+          "$value": "{palette.destroy.500}"
+        },
+        "strong": {
+          "$type": "color",
+          "$value": "{palette.destroy.700}"
+        },
+        "emphasis": {
+          "$type": "color",
+          "$value": "{palette.destroy.900}"
+        }
+      }
+    }
+  },
+  "layout": {
+    "specimenCanvas": {
+      "color": {
+        "width": {
+          "$type": "dimension",
+          "$value": "1440px"
+        },
+        "height": {
+          "$type": "dimension",
+          "$value": "1240px"
+        }
+      },
+      "typography": {
+        "width": {
+          "$type": "dimension",
+          "$value": "1440px"
+        },
+        "height": {
+          "$type": "dimension",
+          "$value": "3950px"
+        }
+      }
+    },
+    "specimenOuterMargin": {
+      "$type": "dimension",
+      "$value": "72px",
+      "$description": "Both specimens use 72px left margin for main content"
+    },
+    "contentWidth": {
+      "$type": "dimension",
+      "$value": "1296px",
+      "$description": "1440 minus twice 72; explicit rectangle dimensions"
+    },
+    "hierarchyCard": {
+      "width": {
+        "$type": "dimension",
+        "$value": "630px"
+      },
+      "height": {
+        "$type": "dimension",
+        "$value": "310px"
+      },
+      "gap": {
+        "$type": "dimension",
+        "$value": "36px"
+      },
+      "horizontalPadding": {
+        "$type": "dimension",
+        "$value": "28px",
+        "$description": "Text starts 28px after x=72 or x=738"
+      },
+      "radius": {
+        "$type": "dimension",
+        "$value": "5px"
+      },
+      "cta": {
+        "width": {
+          "$type": "dimension",
+          "$value": "197px"
+        },
+        "height": {
+          "$type": "dimension",
+          "$value": "35px"
+        },
+        "radius": {
+          "$type": "dimension",
+          "$value": "5px"
+        }
+      }
+    },
+    "usageCard": {
+      "width": {
+        "$type": "dimension",
+        "$value": "630px"
+      },
+      "height": {
+        "$type": "dimension",
+        "$value": "207px"
+      },
+      "radius": {
+        "$type": "dimension",
+        "$value": "5px"
+      },
+      "horizontalPadding": {
+        "$type": "dimension",
+        "$value": "25px"
+      }
+    },
+    "typeSpecimen": {
+      "cardRadius": {
+        "$type": "dimension",
+        "$value": "5px"
+      },
+      "divider": {
+        "$type": "dimension",
+        "$value": "1px",
+        "$description": "SVG stroke defaults to 1px unless overridden"
+      }
+    },
+    "colorSpecimen": {
+      "groupRadius": {
+        "$type": "dimension",
+        "$value": "20px"
+      },
+      "swatchRadius": {
+        "$type": "dimension",
+        "$value": "12px"
+      },
+      "markerRadius": {
+        "$type": "dimension",
+        "$value": "3px"
+      },
+      "swatchWidth": {
+        "$type": "dimension",
+        "$value": "172px"
+      },
+      "swatchGap": {
+        "$type": "dimension",
+        "$value": "10px"
+      },
+      "swatchStrokeOpacity": {
+        "$type": "number",
+        "$value": 0.07
+      }
+    }
+  }
+}

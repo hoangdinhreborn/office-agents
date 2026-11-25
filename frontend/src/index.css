@@ -1,0 +1,503 @@
+@import "tailwindcss";
+@custom-variant dark (&:where(.dark, .dark *, [data-pdf-theme="dark"], [data-pdf-theme="dark"] *):not(:where([data-pdf-theme="light"], [data-pdf-theme="light"] *)));
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent-surface);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--shadcn-border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+}
+
+:root {
+  color-scheme: light;
+
+  /* Palette tokens from docs/design-token.json */
+  --primary-100: #E8ECF4;
+  --primary-300: #A8B5CE;
+  --primary-500: #14213D;
+  --primary-700: #0E1830;
+  --primary-900: #070E1F;
+
+  --accent-100: #FFF3DD;
+  --accent-300: #FFD595;
+  --accent-500: #FCA311;
+  --accent-700: #CB7C00;
+  --accent-900: #804600;
+
+  --success-100: #E3F8EB;
+  --success-300: #A6E4BD;
+  --success-500: #2DA96B;
+  --success-700: #197A49;
+  --success-900: #0D462C;
+
+  --warning-100: #FFF5D6;
+  --warning-300: #FFE08A;
+  --warning-500: #F5BE38;
+  --warning-700: #B9850B;
+  --warning-900: #704B06;
+
+  --destroy-100: #FFE8E5;
+  --destroy-300: #F5AFA9;
+  --destroy-500: #E34D45;
+  --destroy-700: #AD2928;
+  --destroy-900: #651619;
+
+  --neutral-white-100: #FFFFFF;
+  --neutral-white-300: #F2F2F2;
+  --neutral-white-500: #E6E6E6;
+  --neutral-white-700: #D9D9D9;
+  --neutral-white-900: #CCCCCC;
+
+  --neutral-black-100: #CCCCCC;
+  --neutral-black-300: #999999;
+  --neutral-black-500: #666666;
+  --neutral-black-700: #333333;
+  --neutral-black-900: #000000;
+
+  /* Light Mode semantic tokens grounded in docs/design-token.json */
+  --bg: #FFFFFF;
+  --surface-panel: #F4F6FA;
+  --surface: #FFFFFF;
+  --surface-card: #F5F7FB;
+  --surface-card-hover: #E8ECF4;
+  --surface-control: #E8ECF4;
+  --surface-control-hover: #DCE3F0;
+  --surface-recessed: #EDF0F6;
+  --surface-track: #E6EBF3;
+  --text: #14213D;
+  --text-body: #24324E;
+  --text-muted: #525E75;
+  --border: #CBD3E1;
+  --border-hover: #8F9DB5;
+  --divider: #E2E7F0;
+  --accent: #FCA311;
+  --accent-hover: #E59109;
+  --accent-ink: #B86E00;
+  --primary-btn-bg: #14213D;
+  --primary-btn-hover: #1F325C;
+  --primary-btn-fg: #FFFFFF;
+  --success-bg: #E3F8EB;
+  --success-fg: #197A49;
+  --warning-bg: #FFF5D6;
+  --warning-fg: #704B06;
+  --warning-icon: #B9850B;
+  --destroy-bg: #FFE8E5;
+  --destroy-fg: #AD2928;
+  --destroy-fg-hover: #7A1616;
+  --overlay-backdrop: rgba(20, 33, 61, 0.42);
+  --scrollbar-thumb: rgba(20, 33, 61, 0.22);
+  --scrollbar-thumb-hover: rgba(20, 33, 61, 0.38);
+
+  /* shadcn/ui semantic variables (Light Mode) */
+  --background: #FFFFFF;
+  --foreground: #14213D;
+  --card: #FFFFFF;
+  --card-foreground: #14213D;
+  --popover: #FFFFFF;
+  --popover-foreground: #14213D;
+  --primary: #14213D;
+  --primary-foreground: #FFFFFF;
+  --secondary: #F4F6FA;
+  --secondary-foreground: #14213D;
+  --muted: #EDF0F6;
+  --muted-foreground: #525E75;
+  --accent-surface: #E8ECF4;
+  --accent-foreground: #14213D;
+  --destructive: #E34D45;
+  --destructive-foreground: #FFFFFF;
+  --shadcn-border: #E2E7F0;
+  --input: #CBD3E1;
+  --ring: #FCA311;
+  --sidebar: #F4F6FA;
+  --sidebar-foreground: #14213D;
+  --sidebar-accent: #E8ECF4;
+  --sidebar-accent-foreground: #14213D;
+  --sidebar-border: #E2E7F0;
+
+  --font-sans: 'Plus Jakarta Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-mono: ui-monospace, 'SFMono-Regular', Consolas, 'Liberation Mono', monospace;
+}
+
+.dark {
+  color-scheme: dark;
+
+  /* Dark Mode semantic tokens grounded in docs/design-token.json */
+  --bg: #070E1F;
+  --surface-panel: #0E1830;
+  --surface: #14213D;
+  --surface-card: #14213D;
+  --surface-card-hover: #1B2C4E;
+  --surface-control: #1B2C4E;
+  --surface-control-hover: #253B66;
+  --surface-recessed: #0E1830;
+  --surface-track: #070E1F;
+  --text: #FFFFFF;
+  --text-body: #E5E5E5;
+  --text-muted: #A8B5CE;
+  --border: rgba(168, 181, 206, 0.30);
+  --border-hover: rgba(168, 181, 206, 0.65);
+  --divider: rgba(168, 181, 206, 0.16);
+  --accent: #FCA311;
+  --accent-hover: #FFD595;
+  --accent-ink: #FCA311;
+  --primary-btn-bg: #E8ECF4;
+  --primary-btn-hover: #FFFFFF;
+  --primary-btn-fg: #14213D;
+  --success-bg: #0D462C;
+  --success-fg: #A6E4BD;
+  --warning-bg: #704B06;
+  --warning-fg: #FFF5D6;
+  --warning-icon: #FFE08A;
+  --destroy-bg: #651619;
+  --destroy-fg: #F5AFA9;
+  --destroy-fg-hover: #FFE8E5;
+  --overlay-backdrop: rgba(0, 0, 0, 0.65);
+  --scrollbar-thumb: rgba(168, 181, 206, 0.28);
+  --scrollbar-thumb-hover: rgba(168, 181, 206, 0.48);
+
+  /* shadcn/ui semantic variables (Dark Mode) */
+  --background: #0E1830;
+  --foreground: #FFFFFF;
+  --card: #14213D;
+  --card-foreground: #FFFFFF;
+  --popover: #14213D;
+  --popover-foreground: #FFFFFF;
+  --primary: #E8ECF4;
+  --primary-foreground: #070E1F;
+  --secondary: #14213D;
+  --secondary-foreground: #E8ECF4;
+  --muted: #070E1F;
+  --muted-foreground: #A8B5CE;
+  --accent-surface: #1B2C4E;
+  --accent-foreground: #FFFFFF;
+  --destructive: #E34D45;
+  --destructive-foreground: #FFFFFF;
+  --shadcn-border: rgba(168, 181, 206, 0.2);
+  --input: rgba(168, 181, 206, 0.28);
+  --ring: #FCA311;
+  --sidebar: #0B1429;
+  --sidebar-foreground: #E8ECF4;
+  --sidebar-accent: #1B2C4E;
+  --sidebar-accent-foreground: #FFFFFF;
+  --sidebar-border: rgba(168, 181, 206, 0.18);
+}
+
+/* Scoped Light / Dark theme tokens for @extend/pdf-viewer */
+[data-pdf-theme="light"] {
+  color-scheme: light;
+  --background: #FFFFFF;
+  --foreground: #0F172A;
+  --card: #FFFFFF;
+  --card-foreground: #0F172A;
+  --popover: #FFFFFF;
+  --popover-foreground: #0F172A;
+  --primary: #14213D;
+  --primary-foreground: #FFFFFF;
+  --secondary: #F1F5F9;
+  --secondary-foreground: #0F172A;
+  --muted: #E2E8F0;
+  --muted-foreground: #475569;
+  --accent-surface: #E8ECF4;
+  --accent-foreground: #14213D;
+  --destructive: #DC2626;
+  --destructive-foreground: #FFFFFF;
+  --shadcn-border: #E2E8F0;
+  --input: #CBD5E1;
+  --ring: #FCA311;
+  --sidebar: #F8FAFC;
+  --sidebar-foreground: #0F172A;
+  --sidebar-accent: #E2E8F0;
+  --sidebar-accent-foreground: #0F172A;
+  --sidebar-border: #E2E8F0;
+}
+
+[data-pdf-theme="dark"] {
+  color-scheme: dark;
+  --background: #0E1830;
+  --foreground: #FFFFFF;
+  --card: #14213D;
+  --card-foreground: #FFFFFF;
+  --popover: #14213D;
+  --popover-foreground: #FFFFFF;
+  --primary: #E8ECF4;
+  --primary-foreground: #070E1F;
+  --secondary: #14213D;
+  --secondary-foreground: #E8ECF4;
+  --muted: #070E1F;
+  --muted-foreground: #A8B5CE;
+  --accent-surface: #1B2C4E;
+  --accent-foreground: #FFFFFF;
+  --destructive: #E34D45;
+  --destructive-foreground: #FFFFFF;
+  --shadcn-border: rgba(168, 181, 206, 0.2);
+  --input: rgba(168, 181, 206, 0.28);
+  --ring: #FCA311;
+  --sidebar: #0B1429;
+  --sidebar-foreground: #E8ECF4;
+  --sidebar-accent: #1B2C4E;
+  --sidebar-accent-foreground: #FFFFFF;
+  --sidebar-border: rgba(168, 181, 206, 0.18);
+}
+
+/* Comfortable dark-mode paper reading filter inside @extend/pdf-viewer (leaves overlays un-inverted) */
+.pdf-page-dark-mode {
+  filter: invert(0.91) hue-rotate(180deg) brightness(0.96) contrast(0.94);
+}
+
+@layer base {
+  html,
+  body,
+  #root {
+    height: 100%;
+    width: 100%;
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+    background-color: var(--bg);
+    color: var(--text);
+    font-family: var(--font-sans);
+    font-size: 16px;
+    line-height: 24px;
+    letter-spacing: 0.008em;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  option {
+    background-color: var(--surface);
+    color: var(--text);
+  }
+
+  /* Focus ring strictly uses outline, never border (Rule 22) */
+  *:focus-visible {
+    outline: 2px solid var(--accent-500);
+    outline-offset: 2px;
+  }
+}
+
+/* Clean thumb-only scrollbars globally (explicitly hides scrollbar arrow buttons) */
+*::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+*::-webkit-scrollbar-thumb {
+  background-color: var(--scrollbar-thumb);
+  border-radius: 9999px;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background-color: var(--scrollbar-thumb-hover);
+}
+
+*::-webkit-scrollbar-button,
+*::-webkit-scrollbar-button:single-button,
+*::-webkit-scrollbar-button:start:decrement,
+*::-webkit-scrollbar-button:end:increment {
+  display: none;
+  width: 0;
+  height: 0;
+  background: transparent;
+}
+
+*::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+.scroll-area {
+  overflow-y: auto;
+}
+
+@supports not selector(::-webkit-scrollbar) {
+  .scroll-area {
+    scrollbar-width: thin;
+    scrollbar-color: var(--scrollbar-thumb) transparent;
+  }
+}
+
+/* Markdown view typography adhering strictly to design-token.json light & dark hierarchy */
+.markdown-content {
+  font-size: 16px;
+  line-height: 24px;
+  color: var(--text-body);
+  max-width: 72ch;
+}
+
+.markdown-content.markdown-compact {
+  font-size: 13px;
+  line-height: 20px;
+}
+
+.markdown-content h1,
+.markdown-content h2,
+.markdown-content h3,
+.markdown-content h4 {
+  font-weight: 700;
+  color: var(--text);
+  margin-top: 0.75em;
+  margin-bottom: 0.35em;
+}
+
+.markdown-content h1:first-child,
+.markdown-content h2:first-child,
+.markdown-content h3:first-child,
+.markdown-content h4:first-child,
+.markdown-content p:first-child,
+.markdown-content ul:first-child {
+  margin-top: 0;
+}
+
+.markdown-content p {
+  margin-top: 0.5em;
+  margin-bottom: 0.5em;
+}
+
+.markdown-content p:last-child,
+.markdown-content ul:last-child,
+.markdown-content ol:last-child {
+  margin-bottom: 0;
+}
+
+.markdown-content ul,
+.markdown-content ol {
+  padding-left: 1.25rem;
+  margin-top: 0.35em;
+  margin-bottom: 0.5em;
+}
+
+.markdown-content ul {
+  list-style-type: disc;
+}
+
+.markdown-content ol {
+  list-style-type: decimal;
+}
+
+.markdown-content li {
+  margin-top: 0.2em;
+  margin-bottom: 0.2em;
+}
+
+.markdown-content strong {
+  font-weight: 600;
+  color: var(--text);
+}
+
+.markdown-content code {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  line-height: 20px;
+  background-color: var(--surface-recessed);
+  color: var(--accent-ink);
+  padding: 0.1em 0.35em;
+  border-radius: 6px;
+}
+
+.markdown-content pre {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  line-height: 20px;
+  background-color: var(--surface-recessed);
+  color: var(--text-body);
+  padding: 0.75rem 1rem;
+  border-radius: 8px;
+  overflow-x: auto;
+  margin: 0.5rem 0;
+}
+
+.markdown-content pre code {
+  background-color: transparent;
+  color: inherit;
+  padding: 0;
+}
+
+.markdown-content table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 0.5rem 0;
+  font-size: 13px;
+  line-height: 20px;
+  font-variant-numeric: tabular-nums;
+}
+
+.markdown-content th,
+.markdown-content td {
+  padding: 0.45rem 0.6rem;
+  text-align: left;
+  border-bottom: 1px solid var(--divider);
+}
+
+.markdown-content th {
+  font-weight: 700;
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+/* Elevated Complexity (Rule 25): only outermost containers with >= 3 interactive children */
+.elevated-container {
+  box-shadow: 0 12px 32px rgba(20, 33, 61, 0.14), 0 2px 8px rgba(20, 33, 61, 0.08), 0 0 0 1px rgba(20, 33, 61, 0.07);
+}
+
+.elevated-subtle {
+  box-shadow: 0 6px 20px rgba(20, 33, 61, 0.09), 0 0 0 1px rgba(20, 33, 61, 0.07);
+}
+
+.dark .elevated-container {
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.52), 0 2px 8px rgba(0, 0, 0, 0.35);
+}
+
+.dark .elevated-subtle {
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.42);
+}
+
+/* Hide scrollbars cleanly for auto-growing chat composer textarea */
+.no-scrollbar {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+/* Smooth visual focus highlight when jumping to a cited passage in PDF View Mode */
+@keyframes citationFocusPulse {
+  0% {
+    background-color: rgba(252, 163, 17, 0.36);
+  }
+  50% {
+    background-color: rgba(252, 163, 17, 0.22);
+  }
+  100% {
+    background-color: rgba(252, 163, 17, 0.28);
+  }
+}
+
+.pdf-citation-focus {
+  background-color: rgba(252, 163, 17, 0.26);
+  animation: citationFocusPulse 1.6s ease-out 1;
+}

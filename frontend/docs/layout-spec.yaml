@@ -1,0 +1,389 @@
+body:
+    scroll: disable
+    sidebar:
+        scroll: disable
+        header:
+            layout: nằm ngang
+                logo: căn trái
+                text: căn trái
+                icon: căn phải
+                    code: layout-sidebar
+                    event: click vào thì sidebar bị đóng lại
+        content:
+            group:
+                feature:
+                    scroll: disable
+                    tab:
+                        project:
+                chat-session:
+                    scroll: enable
+                    title: history
+        footer:
+            layout: nằm ngang
+                image: logo user giả lập bo tròn căn trái
+                component: căn trái
+                    layout: xếp chồng
+                        text: tên của user
+                        sub-text: role
+                icon: căn phải
+                    code: logout
+                    event: click vào hiện dialog
+                        dialog:
+                            header: 
+                                layout: nằm ngang
+                                    title: Tiêu đề dialog
+                                    icon: 
+                                        code: x
+                            content: dòng chữ gì đó theo bạn recommend
+                            footer:
+                                layout: nằm ngang căn phải các thành phần bên trong
+                                    button: Đăng xuất
+                                        shape-style: outline
+                                    button: Hủy
+                                        shape-style: filled
+        event: Khi sidebar đang đóng, hover lên logo app thì nó chuyển thành icon.code: layout-sidebar-right và khi click vào icon này thì sidebar bung ra
+    main-content:
+        scroll: disable
+        project-page:
+            header: 
+                layout: nằm ngang
+                    text: căn trái
+                        value: Dự án
+                    input-field: căn phải
+                    icon: căn phải
+                        code: arrows-sort
+                        event: click mở popover.shape-style[filled] sort được theo thời gian tạo project tăng hoặc giảm hoặc sort theo a-z tăng giảm
+                    button: căn phải
+                        title: Tạo dự án
+                        shape-style: filled
+                        event: mở dialog
+                            dialog:
+                                header:
+                                    layout: nằm ngang
+                                        text: căn trái
+                                            value: Dự án mới
+                                        icon: căn phải
+                                            code: x
+                                content:
+                                    layout: xếp chồng
+                                        text: căn trái
+                                            value: Đặt tên dự án
+                                        input-field: căn đầy
+                                            place-holder: theo bạn recommend
+                                        text: căn trái
+                                            value: Nhãn dự án
+                                        button: căn phải
+                                            value: Duyệt
+                                            event: mở dialog
+                                                dialog:
+                                                    header:
+                                                        layout: ngang hàng
+                                                            text: căn trái
+                                                                value: Chọn nhãn
+                                                            icon: căn phải
+                                                                code: x
+                                                                event: đóng dialog
+                                                    content:
+                                                        scroll: enable
+                                                        layout: grid 5 cột
+                                                            component:
+                                                                icon: center
+                                                                shape-style: filled
+                                                                event: đóng dialog và lưu icon được chọn
+                                        text: căn trái
+                                            value: Thành viên
+                                        button: căn phải
+                                            title: Thêm
+                                            shape-style: filled
+                                            event: lấy địa chỉ mail từ input-field để tạo mem-component bên dưới
+                                        input-field: căn đầy
+                                            place-hoder: Nhập địa chỉ mail thành viên
+                                        component:
+                                            scroll: enable
+                                            layout: xếp chồng
+                                                note: chứa các component con
+                                                mem-component:
+                                                    shape-style: ghost
+                                                    event: hover shape-style thành soft
+                                                    layout: nằm ngang
+                                                        text: căn trái
+                                                            value: địa chỉ mail được thêm
+                                                            constraint: tối đa 18 kí tự từ kí tự thứ 19 trở đi thay thành ...
+                                                        select-box: căn phải
+                                                            shape-style: outline
+                                                            value: ["nội bộ", "khách"]
+                                                        icon:
+                                                            code: x
+                                                            event: ấn x thì xóa chính mem-component đó
+                                footer:
+                                    layout: nằm ngang căn phải toàn bộ component
+                                        button:
+                                            title: Hủy
+                                            shape-style: outline
+                                            event: Đóng dialog
+                                        button:
+                                            title: Tạo
+                                            shape-style: filled
+                                            event: đóng dialog, tạo toast và tạo component trong main-content.project-page.content.layout
+            content:
+                scroll: enable
+                layout: lưới 5 cột
+                    component:
+                        layout: xếp chồng
+                            component:
+                                layout: nằm ngang
+                                    icon: căn trái
+                                        code: dựa theo code được chọn
+                                        shape-style: ghost
+                                    icon: căn phải
+                                        code: dots-vertical
+                                        shape-style: ghost
+                                        event: mở popover shape-style là filled với 3 lựa chọn là ["Sửa tiêu đề","Đổi nhãn","Xóa dự án"]
+                            component:
+                                layout: xếp chồng
+                                    text: Tên dự án
+                                    text: thời gian tạo (dd-mm-yyyy) * i nguồn (với i là tổng số mail được fetch và số pdf được tải lên)
+                        event: click vào direct đến project-page/id với content-right-tab được kích hoạt
+        project-page/id:
+            scroll: disable
+            header:
+                layout: nằm ngang
+                    select-box: căn trái
+                        value: [Tiêu đề dự án hiện tại, tiêu đề dự án khác,...]
+                        default: Chọn tiêu đề của dự án hiện tại
+                        event: value được chọn trigger project-page/id
+                        shape-style: outline
+                   button: căn phải
+                        icon: archive
+                        text: Tài nguyên
+                        shape-style: filled
+                        event:
+                    button: căn phải
+                        icon:
+                            code: adjustments
+                        text: Cấu hình
+                        shape-style: outline
+                        event:
+            content-left-tab:
+                scroll: disable
+                layout: index
+                    text: w.center h.center
+                        value: Chào <tên user>, hôm nay nhiều việc lắm đấy
+                    messages-component: xếp chồng
+                        user-component: căn phải
+                            layout: xếp chồng
+                                text: tin nhắn của user
+                                    shape-style: filled
+                                component:
+                                    layout: nằm ngang
+                                        icon:
+                                            code: copy
+                        agent-component: căn trái
+                            layout: xếp chồng
+                                reasoning-component-shadcn: căn trái
+                                markdown-view: căn đều
+                                component:
+                                    layout: nằm ngang
+                                        icon: căn trái
+                                            code: copy
+                    chat-component: w.center h.bottom
+                        layout: nằm ngang
+                            input-field: căn đầy
+                                place-holder: theo bạn recommend
+                                short-cut:
+                                    enter: gửi tin nhắn
+                                        event: gửi tin nhắn và thay content-left-tab.layout.text bị thay thành messages-component
+                                    alt_enter: xuống dòng
+                                    ctrl_z: undo text
+                                    ctrl_shift_z: redo text
+                            button:
+                                title: follow value
+                                shape-style: outline
+                                event: mở popover
+                                    popover:
+                                        header:
+                                            layout: nằm ngang
+                                                text: căn trái
+                                                    value: Mô hình
+                                                icon: căn phải
+                                                    code: settings-2
+                                        content:
+                                            scroll: enable
+                                            layout: xếp chồng
+                                                component:
+                                                    layout: xếp chồng
+                                                        text: căn trái
+                                                            value: tên nhà cung cấp
+                                                        component:
+                                                            note: các model của nhà cung cấp có thể chọn
+                                                            layout: xếp chồng
+                            icon: căn phải
+                                code: arrow-narrow-up
+                                shape-style: filled
+                                event: gửi tin nhắn và thay content-left-tab.layout.text bị thay thành messages-component
+            content-right-tab:
+                scroll: disable
+                layout: xếp chồng
+                    header:
+                        layout: xếp chồng
+                            input-component:
+                                layout: nằm ngang
+                                    button: căn đều
+                                        icon: refresh
+                                        title: Đồng bộ
+                                    button: căn đều
+                                        icon: paperclip
+                                        title: Tải lên
+                                        note: Đây là UC01.ingest
+                            tool-component:
+                                layout: nằm ngang
+                                    icon: căn trái
+                                        code: arrows-sort
+                                        event: hiện popover có thể sort theo thời gian/bảng chữ cái tăng giảm
+                                    checkbox: căn trái
+                                        event: tiêu đề chọn tất cả/bỏ tất cả follow status checkbox
+                                `   switch-button: căn phải
+                                        text: Mặc định
+                                            event: danh sách các component email và cả component pdf nằm chung trong content-right-tab.content
+                                        text: Tuần
+                                            event: chia chế độ xem content-right-tab.content thành các toggle theo tuần
+                                        text: Đầu vào
+                                            event: chia chế độ xem content-right-tab.content thành 2 tab là mail và pdf
+                    content:
+                        scroll: enable
+                        wrapper:
+                            checkbox: cho từng component trong layout
+                            layout:
+                                pdf-component:
+                                    layout: nằm ngang
+                                        icon: căn trái
+                                            code: file-type-pdf
+                                        component: căn trái
+                                            layout: xếp chồng
+                                                text: 
+                                                    value: tên file
+                                                text:
+                                                    value: dung lượng file * số trang
+                                mail-component:
+                                    layout: nằm ngang
+                                        icon:
+                                            code: brand-gmail
+                                        component:
+                                            layout: xếp chồng
+                                                component:
+                                                    layout: nằm ngang
+                                                        text: căn trái
+                                                            value: địa chỉ mail gửi
+                                                            constraint: hiển thị 18 kí tự đầu, từ kí tự 19 trở đi thay bằng ...
+                                                        select-box: căn trái
+                                                            value: ["nội bộ", "khách"]
+                                                            shape-style: ghost
+                                                text:
+                                                    value: tiêu đề
+                                                        constraint: hiển thị 18 kí tự đầu, từ kí tự 19 trở đi thay bằng ...
+                                        icon: căn phải
+                                            code: layout-bottombar
+                                            event: xổ tool-bar của wrap
+                                    event: hover vào mới thấy icon layout-bottombar
+                            toolbar-component:
+                                scroll: enable
+                                header: 
+                                    switch-button:
+                                        text: Tóm tắt
+                                            event: hiện summarize-tab
+                                        text: Đề xuất giải pháp
+                                            event: hiện solution-tab
+                                        text: Đặt lịch
+                                            event: hiện schedule-tab
+                                content:
+                                    summarize-tab:
+                                        markdown-view:
+                                    solution-tab:
+                                        layout: lưới 2 cột
+                                            solution-option-component:
+                                                layout: xếp chồng
+                                                    header:
+                                                        layout: nằm ngang
+                                                            text: căn trái
+                                                                value: Giải pháp i (với i là số tự nhiên từ 1)
+                                                            text: căn phải
+                                                                value: Đề xuất
+                                                                note: Chỉ hiện ra với component đầu tiên nghĩa là giải pháp đầu tiên là giải pháp tối ưu nhất
+                                                    content:
+                                                        component:
+                                                            markdown-view:
+                                                                note: Tiêu đề và nội dung giải pháp
+                                                        component:
+                                                            markdown-view:
+                                                                note: Ưu nhược điểm
+                                        footer:
+                                            layout: nằm ngang
+                                                input-field: căn đều
+                                                    place-holder: Thêm ràng buộc
+                                                button:
+                                                    title: Đề xuất lại
+                                    schedule-tab:
+                                        layout: xếp chồng
+                                            text: Tiêu đề lịch
+                                            input-field: Nhập tiêu đề
+                                            component: 
+                                                layout: nằm ngang
+                                                    calendar-component: căn trái 
+                                                    startime-component: căn phải
+                                                    endtime-component: căn phải
+                                            component:
+                                                layout: nằm ngang
+                                                    checkbox: căn trái
+                                                    text: Tất cả các ngày
+                                                    select-box: ["Does not repeat","Daily","Weekly on Wednesday","Monthly on the fourth Wednesday","Monthly on the last Wednesday","Annually on November 25","Every weekday (Monday to Friday)","Custom..."]
+                                                        event: khi chọn customize hiện ra dialog
+                                                            dialog:
+                                                                layout:
+                                                                    header:
+                                                                        layout: nằm ngang
+                                                                            text: căn trái
+                                                                                value: tùy chỉnh lặp
+                                                                    content:
+                                                                        layout: xếp chồng
+                                                                            component:
+                                                                                layout: nằm ngang
+                                                                                    text: căn trái
+                                                                                        value: Lặp mỗi
+                                                                                    number-spinner:
+                                                                                        constrait: nhỏ nhất là 1
+                                                                                    select-box:
+                                                                                        value: ["ngày", "tuần", "tháng", "năm"]
+                                                                            text: Kết thúc
+                                                                            radio-group:
+                                                                                layout: horizotal
+                                                                                value: ['S', 'M', 'T', 'W', 'T', 'F', 'S']
+                                                                                select: multi
+                                                                            text:
+                                                                            radio-group:
+                                                                                layout: vertical
+                                                                                value: ['Không bao giờ', 'Vào':component-calendar, 'Sau khi lặp':number-spinner.note("ý nghĩa là sau bao nhiêu lần lặp")]
+                                                                                select: only-one
+                                                                    footer:
+                                                                        layout: nằm ngang căn phải
+                                                                            button:
+                                                                                title: Hủy
+                                                                                shape-style: ghost
+                                                                            button:
+                                                                                title: Tạo
+                                                                                shape-style: filled
+                                            button:
+                                                value: Thêm hạn chót
+                                                shape-style: ghost
+                                                event: khi ấn vào tạo thành component
+                                                    component:
+                                                        layout: nằm ngang
+                                                            text: căn trái
+                                                                value: Hạn
+                                                            calendar-component: căn trái
+                                                            icon: căn phải
+                                                                code: x
+                                                                event: trả về trạng thái button.value("Thêm hạn chót")
+                                            text-area:
+                                                place-holder: thêm mô tả
+                                            button: căn phải
+                                                value: Duyệt và tạo lịch

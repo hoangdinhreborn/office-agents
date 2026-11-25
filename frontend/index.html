@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="vi">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#070E1F" />
+    <link rel="icon" type="image/png" href="/assets/mesoffice-logo.png" />
+    <title>Sổ Việc — Không gian Trợ lý Văn phòng</title>
+    <meta name="description" content="Không gian làm việc trợ lý văn phòng chạy Local LLM: tóm tắt PDF, đề xuất giải pháp, đồng bộ email và tạo lịch làm việc." />
+    <meta property="og:title" content="Sổ Việc — Không gian Trợ lý Văn phòng" />
+    <meta property="og:description" content="Không gian làm việc trợ lý văn phòng chạy Local LLM: tóm tắt PDF, đề xuất giải pháp, đồng bộ email và tạo lịch làm việc." />
+    <meta property="og:type" content="website" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <script>
+      (function () {
+        try {
+          var pref = localStorage.getItem('soviec-theme') || 'system';
+          var isDark =
+            pref === 'dark' ||
+            (pref === 'system' &&
+              window.matchMedia &&
+              window.matchMedia('(prefers-color-scheme: dark)').matches);
+          document.documentElement.classList.toggle('dark', isDark);
+          document.documentElement.dataset.theme = isDark ? 'dark' : 'light';
+        } catch (e) {
+          document.documentElement.classList.add('dark');
+        }
+      })();
+    </script>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700&display=swap"
+      rel="stylesheet"
+    />
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
+
