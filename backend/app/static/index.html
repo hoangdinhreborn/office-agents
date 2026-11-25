@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Local Multi-Agent AI Assistant - Framework</title>
+  <title>deskhive-harness</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
     tailwind.config = {
@@ -84,7 +84,7 @@
         </div>
         <div>
           <span class="font-bold text-sm tracking-tight text-white flex items-center gap-1.5">
-            Local AI Assistant
+            deskhive-harness
             <span class="text-[10px] bg-brand-500/20 text-brand-400 border border-brand-500/30 px-1.5 py-0.2 rounded font-mono">v1.2</span>
           </span>
         </div>
@@ -1447,7 +1447,7 @@
           appendChatMessage('ai', `Lỗi máy chủ (${res.status}): ${res.statusText}`);
         }
       } catch (err) {
-        appendChatMessage('ai', `Lỗi kết nối Local AI Assistant: ${err.message}`);
+        appendChatMessage('ai', `Lỗi kết nối deskhive-harness: ${err.message}`);
       } finally {
         sendBtn.disabled = false;
         sendBtn.innerHTML = '<span>Gửi</span> <i class="fa-solid fa-arrow-up text-xs"></i>';

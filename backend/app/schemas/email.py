@@ -21,3 +21,4 @@ class EmailMessage:
     folder: str = "INBOX"
     has_attachments: bool = False
     attachments: List[EmailAttachment] = field(default_factory=list)
+    label_ids: List[str] = field(default_factory=list)

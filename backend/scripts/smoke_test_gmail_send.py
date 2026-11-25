@@ -87,15 +87,15 @@ def run_smoke_test(
     # 4. Prepare message
     target_to = recipient or my_email
     timestamp_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    mail_subject = subject or f"[Local AI Assistant] Kiểm tra gửi mail tự động lúc {timestamp_str}"
+    mail_subject = subject or f"[deskhive-harness] Kiểm tra gửi mail tự động lúc {timestamp_str}"
     mail_body = (
         f"Xin chào {target_to},\n\n"
-        f"Đây là email kiểm thử tự động được gửi từ hệ thống Local AI Assistant qua Gmail API OAuth v1.\n"
+        f"Đây là email kiểm thử tự động được gửi từ hệ thống deskhive-harness qua Gmail API OAuth v1.\n"
         f"- Thời gian gửi: {timestamp_str}\n"
         f"- Người gửi: {my_email}\n"
         f"- Người nhận: {target_to}\n\n"
         f"Nếu bạn nhận được email này, tính năng gửi email đã hoạt động chính xác 100%.\n\n"
-        f"Trân trọng,\nLocal AI Assistant"
+        f"Trân trọng,\ndeskhive-harness"
     )
 
     print(f"\n3. Đang gửi email kiểm thử:")

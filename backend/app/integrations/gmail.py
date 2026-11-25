@@ -5,13 +5,16 @@ import json
 import logging
 from pathlib import Path
 import re
-from typing import Any, Dict, List, Optional
+from threading import RLock
+from typing import Any, Callable, Dict, List, Optional
 from zoneinfo import ZoneInfo
 
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build
+from google_auth_httplib2 import AuthorizedHttp
+import httplib2
 from googleapiclient.errors import HttpError
 
 from app.config import resolve_path, settings
@@ -20,10 +23,10 @@ from app.schemas.email import EmailAttachment, EmailMessage
 logger = logging.getLogger(__name__)
 
 SCOPES_GMAIL = [
-    "https://www.googleapis.com/auth/gmail.readonly",
+    "https://www.googleapis.com/auth/gmail.modify",
     "https://www.googleapis.com/auth/gmail.send",
 ]
-AUTH_HINT = "Chạy: python backend/scripts/smoke_test_gmail_send.py --auth-only"
+AUTH_HINT = "Mở trang đăng nhập deskhive-harness và chọn Tiếp tục với Google để cấp lại quyền Gmail/Calendar."
 VN_TZ = ZoneInfo("Asia/Ho_Chi_Minh")
 
 
@@ -65,7 +68,7 @@ class GmailService:
     Integrates with Gmail API v1 for reading unread emails, PDF attachments and sending mail.
     Features:
     - OAuth2 InstalledAppFlow & Silent Token Refresh.
-    - Scopes: gmail.readonly + gmail.send.
+    - Scopes: gmail.modify + gmail.send.
     - Non-interactive by default: the API / poller never opens a browser.
     - Querying by label and sender filtering.
     - Attachment extraction (PDF bytes).
@@ -76,6 +79,7 @@ class GmailService:
         self.token_path = resolve_path(settings.google_gmail_token_path)
         self._bootstrap_token_from_env()
         self._service = None
+        self._http_lock = RLock()
         self.last_next_page_token: Optional[str] = None
 
     def _bootstrap_token_from_env(self) -> None:
@@ -141,7 +145,7 @@ class GmailService:
                     creds_payload = {
                         "installed": {
                             "client_id": settings.google_client_id.strip(),
-                            "project_id": settings.google_project_id.strip() or "local-ai-assistant",
+                            "project_id": settings.google_project_id.strip() or "deskhive-harness",
                             "auth_uri": "https://accounts.google.com/o/oauth2/auth",
                             "token_uri": "https://oauth2.googleapis.com/token",
                             "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
@@ -192,7 +196,7 @@ class GmailService:
             return None
 
         if not creds.has_scopes(SCOPES_GMAIL):
-            logger.info("Token Gmail thiếu scope (cần gmail.readonly + gmail.send). Cần đăng nhập lại.")
+            logger.info("Token Gmail thiếu scope (cần gmail.modify + gmail.send). Cần đăng nhập lại.")
             return None
 
         if creds.valid:
@@ -239,7 +243,7 @@ class GmailService:
             creds = flow.run_local_server(port=oauth_port, open_browser=True)
             self._save_creds(creds)
 
-        self._service = build("gmail", "v1", credentials=creds, cache_discovery=False)
+        self._service = build("gmail", "v1", http=AuthorizedHttp(creds, http=httplib2.Http(timeout=settings.gmail_api_timeout)), cache_discovery=False)
         return self._service
 
     def get_service(self, force_refresh: bool = False):
@@ -250,6 +254,11 @@ class GmailService:
         return self._service
 
     def _execute_with_retry(self, fn, max_retries: int = 2):
+        # The UI and the background worker share a non-thread-safe httplib2 client.
+        with self._http_lock:
+            return self._execute_locked(fn, max_retries)
+
+    def _execute_locked(self, fn, max_retries: int = 2):
         """
         Executes a Gmail API operation with automatic recovery against stale SSL sockets,
         [SSL: RECORD_LAYER_FAILURE], BrokenPipeError, ConnectionResetError, and transient timeouts.
@@ -298,6 +307,8 @@ class GmailService:
         cc: Optional[List[str]] = None,
         bcc: Optional[List[str]] = None,
         is_html: bool = False,
+        attachments: Optional[List[EmailAttachment]] = None,
+        headers: Optional[Dict[str, str]] = None,
     ) -> MimeEmailMessage:
         to_list = _validate_addresses(to, "to", required=True)
         cc_list = _validate_addresses(cc, "cc")
@@ -318,7 +329,51 @@ class GmailService:
             msg.add_alternative(body or "", subtype="html")
         else:
             msg.set_content(body or "")
+        for name, value in (headers or {}).items():
+            if name not in {"From", "Message-ID", "In-Reply-To", "References"} or "\r" in value or "\n" in value:
+                raise ValueError("Header email không hợp lệ.")
+            if value:
+                msg[name] = value
+        for attachment in attachments or []:
+            mime = attachment.content_type or "application/octet-stream"
+            maintype, subtype = mime.split("/", 1) if "/" in mime else ("application", "octet-stream")
+            msg.add_attachment(attachment.data, maintype=maintype, subtype=subtype, filename=attachment.filename)
         return msg
+
+    def send_prepared_message(self, message: MimeEmailMessage, thread_id: Optional[str] = None) -> Dict[str, Any]:
+        payload = {"raw": base64.urlsafe_b64encode(message.as_bytes()).decode("ascii")}
+        if thread_id:
+            payload["threadId"] = thread_id
+        # Sending is not idempotent. A lost response must be reconciled by
+        # Message-ID instead of replaying this write or refreshing and retrying.
+        result = self._execute_with_retry(
+            lambda s: s.users().messages().send(userId="me", body=payload).execute(num_retries=0), max_retries=0)
+        if not result.get("id"):
+            raise RuntimeError("Gmail chưa trả Message ID xác nhận gửi.")
+        return {"message_id": result["id"], "thread_id": result.get("threadId")}
+
+    def reply_headers(self, message_id: str) -> dict:
+        clean_id = message_id.removeprefix("gmail-")
+        if not re.fullmatch(r"[A-Za-z0-9_-]+", clean_id):
+            raise ValueError("ID thư gốc không hợp lệ.")
+        result = self._execute_with_retry(lambda s: s.users().messages().get(
+            userId="me", id=clean_id, format="metadata", metadataHeaders=["Message-ID", "References", "Subject"]).execute())
+        headers = {h["name"].lower(): h["value"] for h in result.get("payload", {}).get("headers", [])}
+        message_id = headers.get("message-id", "")
+        if not message_id or not result.get("threadId"):
+            raise ValueError("Thư gốc thiếu Message-ID hoặc threadId để phản hồi đúng luồng.")
+        return {"thread_id": result["threadId"], "in_reply_to": message_id,
+                "references": (headers.get("references", "") + " " + message_id).strip(), "subject": headers.get("subject", "")}
+
+    def find_sent_message(self, rfc_message_id: str) -> Optional[dict]:
+        # Read-only reconciliation, including after a process restart. Absence
+        # is not proof of non-delivery because Gmail search can be delayed.
+        query = "in:sent rfc822msgid:" + rfc_message_id.strip("<>")
+        result = self._execute_with_retry(lambda s: s.users().messages().list(userId="me", q=query, maxResults=2).execute())
+        matches = result.get("messages", [])
+        if len(matches) != 1:
+            return None
+        return {"message_id": matches[0]["id"], "thread_id": matches[0].get("threadId")}
 
     def send_email(
         self,
@@ -331,43 +386,56 @@ class GmailService:
     ) -> Dict[str, Any]:
         """Sends an email through Gmail API (users.messages.send). Validates input before any API call."""
         msg = self.build_message(to, subject, body, cc=cc, bcc=bcc, is_html=is_html)
-        raw = base64.urlsafe_b64encode(msg.as_bytes()).decode("ascii")
         try:
-            sent = self._execute_with_retry(
-                lambda s: s.users().messages().send(userId="me", body={"raw": raw}).execute()
-            )
+            sent = self.send_prepared_message(msg)
         except HttpError as exc:
             status = getattr(exc.resp, "status", "?")
             reason = exc._get_reason() if hasattr(exc, "_get_reason") else str(exc)
             logger.error(f"Gmail API gửi mail thất bại (HTTP {status}): {reason}")
             raise RuntimeError(f"Gmail API lỗi HTTP {status}: {reason}") from exc
 
-        logger.info(f"Đã gửi email qua Gmail API (id={sent.get('id')}).")
+        logger.info(f"Đã gửi email qua Gmail API (id={sent.get('message_id')}).")
         return {
             "success": True,
             "provider": "gmail",
-            "message_id": sent.get("id"),
-            "thread_id": sent.get("threadId"),
+            "message_id": sent.get("message_id"),
+            "thread_id": sent.get("thread_id"),
             "label_ids": sent.get("labelIds", []),
         }
 
     def fetch_unread_emails(
+        self, label: str = "INBOX", allowed_senders: Optional[List[str]] = None,
+        limit: int = 10, unread_only: bool = True, page_token: Optional[str] = None,
+    ) -> List[EmailMessage]:
+        # Compatibility for legacy callers; project sync uses an explicit per-call cursor.
+        results, next_page = self.fetch_email_page(label, allowed_senders, limit, unread_only, page_token)
+        self.last_next_page_token = next_page
+        return results
+
+    def fetch_email_page(
         self,
         label: str = "INBOX",
         allowed_senders: Optional[List[str]] = None,
         limit: int = 10,
         unread_only: bool = True,
         page_token: Optional[str] = None,
-    ) -> List[EmailMessage]:
+        label_id: Optional[str] = None,
+        skip_message_ids: Optional[set[str]] = None,
+        on_message: Optional[Callable[[EmailMessage], None]] = None,
+    ) -> tuple[List[EmailMessage], Optional[str]]:
         """
         Fetches emails from Gmail with sender filtering and extracts PDF attachments.
         If unread_only=True, only fetches unread messages; otherwise fetches recent messages in label.
         Supports page_token for incremental scanning and resilient SSL retries.
         """
-        self.last_next_page_token = None
         lbl_clean = label.strip() if label else "INBOX"
-        lbl_expr = f'"{lbl_clean}"' if " " in lbl_clean else lbl_clean
-        query = f"is:unread label:{lbl_expr}" if unread_only else f"label:{lbl_expr}"
+        lbl_expr = '"' + lbl_clean.replace("\\", "\\\\").replace('"', '\\"') + '"'
+        query = ("is:unread" if unread_only else "") if label_id else (f"is:unread label:{lbl_expr}" if unread_only else f"label:{lbl_expr}")
+        if allowed_senders:
+            senders = [parseaddr(sender)[1].strip().lower() for sender in allowed_senders]
+            if any(not re.fullmatch(r"[^\s<>\"{}()]+@[^\s<>\"{}()]+", sender) for sender in senders):
+                raise ValueError("Địa chỉ người gửi không hợp lệ.")
+            query += " {" + " ".join(f"from:{sender}" for sender in senders) + "}"
 
         try:
             def _list_call(svc):
@@ -378,19 +446,23 @@ class GmailService:
                 }
                 if page_token:
                     kwargs["pageToken"] = page_token
+                if label_id:
+                    kwargs["labelIds"] = [label_id]
                 return svc.users().messages().list(**kwargs).execute()
 
             res = self._execute_with_retry(_list_call)
             messages_meta = res.get("messages", [])
-            self.last_next_page_token = res.get("nextPageToken")
+            next_page_token = res.get("nextPageToken")
         except Exception as exc:
             logger.error(f"Lỗi khi truy vấn danh sách email từ Gmail: {exc}")
-            return []
+            raise RuntimeError("Không truy vấn được danh sách Gmail.") from exc
 
         results: List[EmailMessage] = []
 
         for meta in messages_meta:
             msg_id = meta["id"]
+            if skip_message_ids and f"gmail-{msg_id}" in skip_message_ids:
+                continue
             try:
                 def _get_call(svc):
                     return svc.users().messages().get(
@@ -409,17 +481,10 @@ class GmailService:
                 from_raw = headers_dict.get("from", "")
                 date_str = headers_dict.get("date", "")
 
-                sender_name = from_raw
-                sender_email = from_raw
-                if "<" in from_raw and ">" in from_raw:
-                    sender_name = from_raw.split("<")[0].strip(" \"'")
-                    sender_email = from_raw.split("<")[1].split(">")[0].strip().lower()
-
-                # Filter sender
-                if allowed_senders:
-                    sender_low = sender_email.lower()
-                    if not any(s.lower() in sender_low or s.lower() in sender_name.lower() for s in allowed_senders):
-                        continue
+                sender_name, sender_email = parseaddr(from_raw)
+                sender_email = sender_email.strip().lower()
+                if allowed_senders and sender_email not in {parseaddr(s)[1].strip().lower() for s in allowed_senders}:
+                    continue
 
                 # Parse body and attachments
                 body_parts = []
@@ -432,12 +497,14 @@ class GmailService:
                         filename = part.get("filename", "")
 
                         if filename:
-                            is_pdf = filename.lower().endswith(".pdf")
+                            is_pdf = filename.lower().endswith(".pdf") or mime_type.lower() == "application/pdf"
                             att_id = body_info.get("attachmentId")
                             att_data = b""
+                            if is_pdf and body_info.get("data"):
+                                att_data = _decode_base64_data(body_info["data"])
 
                             # Fetch attachment data if attachmentId present
-                            if att_id:
+                            if is_pdf and att_id:
                                 try:
                                     att_obj = self._execute_with_retry(
                                         lambda svc: svc.users().messages().attachments().get(
@@ -449,7 +516,7 @@ class GmailService:
                                     att_data = _decode_base64_data(att_obj.get("data", ""))
                                 except Exception as att_err:
                                     logger.warning(f"Lỗi tải attachment '{filename}': {att_err}")
-                            elif "data" in body_info:
+                            elif is_pdf and "data" in body_info:
                                 att_data = _decode_base64_data(body_info["data"])
 
                             attachments.append(
@@ -482,8 +549,7 @@ class GmailService:
 
                 body_text = "\n".join(body_parts).strip()
 
-                results.append(
-                    EmailMessage(
+                message = EmailMessage(
                         id=f"gmail-{msg_id}",
                         subject=subject,
                         sender_name=sender_name or sender_email,
@@ -493,12 +559,27 @@ class GmailService:
                         folder=label,
                         has_attachments=len(attachments) > 0,
                         attachments=attachments,
-                    )
+                        label_ids=msg_data.get("labelIds", []),
                 )
+                if on_message:
+                    on_message(message)
+                else:
+                    results.append(message)
             except Exception as msg_err:
-                logger.error(f"Lỗi xử lý email id={msg_id}: {msg_err}")
+                raise RuntimeError(f"Không tải được email Gmail {msg_id}.") from msg_err
 
-        return results
+        return results, next_page_token
+
+    def get_message_identity(self, message_id: str) -> dict:
+        clean_id = message_id.removeprefix("gmail-").strip()
+        if not clean_id or not re.fullmatch(r"[A-Za-z0-9_-]+", clean_id):
+            raise ValueError("ID Gmail không hợp lệ.")
+        result = self._execute_with_retry(lambda service: service.users().messages().get(
+            userId="me", id=clean_id, format="metadata", metadataHeaders=["From", "Subject"],
+        ).execute())
+        headers = {header["name"].lower(): header["value"] for header in result.get("payload", {}).get("headers", [])}
+        return {"message_id": f"gmail-{clean_id}", "sender_email": parseaddr(headers.get("from", ""))[1].strip().lower(),
+                "subject": headers.get("subject", ""), "label_ids": result.get("labelIds", [])}
 
     # ------------------------------------------------------------------ label management
     def list_user_labels(self) -> List[Dict[str, Any]]:
@@ -536,11 +617,11 @@ class GmailService:
             logger.warning(f"Không thể tạo/truy vấn nhãn Gmail '{label_name}': {exc}")
             return None
 
-    def add_label_to_message(self, message_id: str, label_name: str) -> bool:
+    def add_label_to_message(self, message_id: str, label_name: str, label_id: Optional[str] = None) -> bool:
         """Attaches a label to a Gmail message by ID with SSL auto-recovery."""
-        clean_id = message_id.replace("gmail-", "").strip()
+        clean_id = message_id.removeprefix("gmail-").strip()
         try:
-            label_id = self.get_or_create_label(label_name)
+            label_id = label_id or self.get_or_create_label(label_name)
             if not label_id:
                 return False
 

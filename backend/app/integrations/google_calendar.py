@@ -4,6 +4,11 @@ import logging
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 from zoneinfo import ZoneInfo
+from googleapiclient.errors import HttpError
+from threading import RLock
+from functools import wraps
+from google_auth_httplib2 import AuthorizedHttp
+import httplib2
 
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
@@ -16,8 +21,17 @@ from app.integrations.base_calendar import CalendarProvider
 logger = logging.getLogger(__name__)
 
 SCOPES_CALENDAR = ["https://www.googleapis.com/auth/calendar.events"]
-AUTH_HINT = "Chạy: python backend/scripts/smoke_test_google_calendar.py --auth-only"
+AUTH_HINT = "Mở trang đăng nhập deskhive-harness và chọn Tiếp tục với Google để cấp lại quyền Gmail/Calendar."
 VN_TZ = ZoneInfo("Asia/Ho_Chi_Minh")
+
+
+def serialized(method):
+    @wraps(method)
+    def call(self, *args, **kwargs):
+        # httplib2 transports are shared by this local provider instance.
+        with self._lock:
+            return method(self, *args, **kwargs)
+    return call
 
 
 class GoogleCalendarProvider(CalendarProvider):
@@ -35,6 +49,7 @@ class GoogleCalendarProvider(CalendarProvider):
         self.token_path = resolve_path(settings.google_calendar_token_path)
         self._bootstrap_token_from_env()
         self._service = None
+        self._lock = RLock()
 
     def _bootstrap_token_from_env(self) -> None:
         if self.token_path.exists():
@@ -166,7 +181,7 @@ class GoogleCalendarProvider(CalendarProvider):
             self.token_path.write_text(creds.to_json(), encoding="utf-8")
             logger.info(f"Đã lưu token Google Calendar tại '{self.token_path}'.")
 
-        self._service = build("calendar", "v3", credentials=creds)
+        self._service = build("calendar", "v3", http=AuthorizedHttp(creds, http=httplib2.Http(timeout=settings.calendar_api_timeout)), cache_discovery=False)
         return self._service
 
     def get_service(self):
@@ -202,6 +217,17 @@ class GoogleCalendarProvider(CalendarProvider):
             logger.warning(f"Lỗi khi kiểm tra trùng lặp trên Google Calendar: {exc}")
         return None
 
+    @serialized
+    def get_event_raw(self, event_id: str) -> Optional[dict]:
+        try:
+            event = self.get_service().events().get(calendarId="primary", eventId=event_id).execute()
+            return None if event.get("status") == "cancelled" else event
+        except HttpError as exc:
+            if exc.resp.status in (404, 410):
+                return None
+            raise
+
+    @serialized
     def create_event(
         self,
         title: str,
@@ -211,6 +237,12 @@ class GoogleCalendarProvider(CalendarProvider):
         location: str = "",
         reminder_minutes: Optional[int] = None,
         stable_hash: Optional[str] = None,
+        all_day: bool = False,
+        recurrence: Optional[List[str]] = None,
+        deadline_date: Optional[str] = None,
+        event_id: Optional[str] = None,
+        app_event_id: Optional[str] = None,
+        project_id: Optional[str] = None,
     ) -> Dict[str, Any]:
         service = self.get_service()
 
@@ -228,7 +260,7 @@ class GoogleCalendarProvider(CalendarProvider):
         rem_mins = reminder_minutes if reminder_minutes is not None else settings.calendar_default_reminder_minutes
 
         # Check duplicate
-        if stable_hash:
+        if stable_hash and not event_id:
             existing_id = self.find_duplicate(stable_hash)
             if existing_id:
                 logger.info(f"Sự kiện '{title}' đã tồn tại trên Google Calendar (id={existing_id}).")
@@ -259,12 +291,34 @@ class GoogleCalendarProvider(CalendarProvider):
             },
         }
 
-        if stable_hash:
-            body["extendedProperties"] = {
-                "private": {"stable_hash": stable_hash}
-            }
+        if all_day:
+            body["start"] = {"date": start_time.date().isoformat(), "timeZone": "Asia/Ho_Chi_Minh"}
+            body["end"] = {"date": end_time.date().isoformat(), "timeZone": "Asia/Ho_Chi_Minh"}
+        if recurrence:
+            body["recurrence"] = recurrence
+        private = {key: value for key, value in {"stable_hash": stable_hash, "app_event_id": app_event_id,
+                   "project_id": project_id, "deadline_date": deadline_date}.items() if value is not None}
+        if private:
+            body["extendedProperties"] = {"private": private}
+        if event_id:
+            body["id"] = event_id
+            existing = self.get_event_raw(event_id)
+            if existing:
+                if existing.get("extendedProperties", {}).get("private", {}).get("app_event_id") != app_event_id:
+                    raise ValueError("Google event ID đã thuộc một sự kiện khác.")
+                return {"success": True, "event_id": event_id, "is_duplicate": True,
+                        "link": existing.get("htmlLink", ""), "raw_event": existing}
 
-        created = service.events().insert(calendarId="primary", body=body).execute()
+        duplicate = False
+        try:
+            created = service.events().insert(calendarId="primary", body=body).execute()
+        except HttpError as exc:
+            if exc.resp.status != 409 or not event_id:
+                raise
+            created = self.get_event_raw(event_id)
+            if not created or created.get("extendedProperties", {}).get("private", {}).get("app_event_id") != app_event_id:
+                raise ValueError("Không đối soát được Google event ID sau phản hồi trùng.") from None
+            duplicate = True
         event_id = created.get("id")
         html_link = created.get("htmlLink", "")
 
@@ -273,9 +327,10 @@ class GoogleCalendarProvider(CalendarProvider):
             "success": True,
             "event_id": event_id,
             "provider": "google",
-            "is_duplicate": False,
+            "is_duplicate": duplicate,
             "link": html_link,
             "message": f"Đã thêm vào Google Calendar thành công kèm nhắc trước {rem_mins} phút.",
+            "raw_event": created,
         }
 
     def update_event(self, event_id: str, **kwargs) -> bool:
@@ -294,15 +349,36 @@ class GoogleCalendarProvider(CalendarProvider):
             logger.error(f"Lỗi khi cập nhật sự kiện Google Calendar {event_id}: {exc}")
             return False
 
+    @serialized
     def delete_event(self, event_id: str) -> bool:
         service = self.get_service()
         try:
             service.events().delete(calendarId="primary", eventId=event_id).execute()
             logger.info(f"Đã xóa sự kiện Google Calendar {event_id}.")
             return True
-        except Exception as exc:
-            logger.error(f"Lỗi khi xóa sự kiện Google Calendar {event_id}: {exc}")
-            return False
+        except HttpError as exc:
+            if exc.resp.status in (404, 410):
+                return True
+            raise
+
+    @serialized
+    def list_events_range(self, start: datetime, end: datetime) -> List[Dict[str, Any]]:
+        service = self.get_service()
+        items, page_token = [], None
+        seen = set()
+        while True:
+            args = {"calendarId": "primary", "timeMin": start.isoformat(), "timeMax": end.isoformat(),
+                    "singleEvents": True, "orderBy": "startTime", "maxResults": 2500}
+            if page_token:
+                args["pageToken"] = page_token
+            result = service.events().list(**args).execute()
+            items.extend(item for item in result.get("items", []) if item.get("status") != "cancelled")
+            page_token = result.get("nextPageToken")
+            if not page_token:
+                return items
+            if page_token in seen:
+                raise RuntimeError("Google Calendar trả cursor phân trang lặp.")
+            seen.add(page_token)
 
     def list_events(self, max_results: int = 10) -> List[Dict[str, Any]]:
         """

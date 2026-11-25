@@ -107,7 +107,7 @@ class CalendarService:
         ics_lines = [
             "BEGIN:VCALENDAR",
             "VERSION:2.0",
-            "PRODID:-//Local AI Assistant//Calendar Agent//VI",
+            "PRODID:-//deskhive-harness//Calendar Agent//VI",
             "CALSCALE:GREGORIAN",
             "METHOD:PUBLISH",
             "BEGIN:VTIMEZONE",

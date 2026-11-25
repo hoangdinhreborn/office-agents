@@ -8,7 +8,6 @@ from zoneinfo import ZoneInfo
 
 from app.integrations.gmail import gmail_service
 from app.llm.ollama import chat_with_llm, extract_json_from_response, LLMResponse
-from app.llm.prompts import SYSTEM_EMAIL_PROMPT
 from app.schemas.email import EmailMessage
 
 logger = logging.getLogger(__name__)
@@ -30,7 +29,6 @@ class EmailAnalysisResult:
     calendar_hint: Optional[str]
     full_analysis: str
     thinking_process: str
-    category: str = "Khác"
     folder: str = "INBOX"
     pdf_filename: Optional[str] = None
     pdf_summary: Optional[str] = None
@@ -62,7 +60,7 @@ Trả về KẾT QUẢ DUY NHẤT ở định dạng JSON hợp lệ trong khố
 
 def parse_email_analysis(text: str) -> dict:
     """
-    Parses urgency, category, issues, and calendar hints from the email analysis output.
+    Parses urgency, issues, and calendar hints from the email analysis output.
     Uses targeted anchored regex to prevent false positive 'Khẩn cấp' triggers.
     """
     urgency = "Trung bình"
@@ -101,41 +99,6 @@ def parse_email_analysis(text: str) -> dict:
         else:
             urgency = "Trung bình"
 
-    # 2. Category parsing
-    category = "Khác"
-    cat_match = re.search(
-        r"(?:danh mục|phân loại|category)\s*[:\-–]\s*(?:\[|\*\*)?\s*([A-Za-zÀ-ỹ\s]{3,30})(?:\]|\*\*|\n|$)",
-        text,
-        re.IGNORECASE,
-    )
-    if cat_match:
-        c_raw = cat_match.group(1).strip()
-        c_low = c_raw.lower()
-        if any(w in c_low for w in ["bài", "tập", "assignment", "lab", "đồ án", "báo cáo"]):
-            category = "Nộp bài"
-        elif any(w in c_low for w in ["học vụ", "hành chính", "đào tạo", "thông báo", "lịch thi"]):
-            category = "Học vụ"
-        elif any(w in c_low for w in ["thắc mắc", "hỏi", "tư vấn", "hỗ trợ", "giải đáp"]):
-            category = "Thắc mắc"
-        elif any(w in c_low for w in ["khẩn", "sự cố", "lỗi", "sập"]):
-            category = "Khẩn cấp"
-        elif any(w in c_low for w in ["công việc", "dự án", "họp", "hợp đồng"]):
-            category = "Công việc"
-        else:
-            category = c_raw.title()
-    else:
-        t_low = text.lower()
-        if any(w in t_low for w in ["nộp bài", "bài tập", "assignment", "lab", "đồ án", "báo cáo"]):
-            category = "Nộp bài"
-        elif any(w in t_low for w in ["thông báo", "học vụ", "thời khóa biểu", "lịch thi", "học phí"]):
-            category = "Học vụ"
-        elif any(w in t_low for w in ["thắc mắc", "hỏi", "nhờ thầy", "cần giúp", "giải đáp"]):
-            category = "Thắc mắc"
-        elif any(w in t_low for w in ["sự cố", "sập server", "nghiêm trọng", "hỏa tốc"]):
-            category = "Khẩn cấp"
-        elif any(w in t_low for w in ["công việc", "cuộc họp", "dự án", "hợp đồng"]):
-            category = "Công việc"
-
     # 3. Check for issue needing solution
     has_issue = any(k in text.lower() for k in ["sự cố", "vấn đề", "giải pháp", "lỗi", "khắc phục", "issue", "problem"])
     issue_desc = None
@@ -154,7 +117,6 @@ def parse_email_analysis(text: str) -> dict:
 
     return {
         "urgency": urgency,
-        "category": category,
         "has_issue": has_issue,
         "issue_desc": issue_desc,
         "has_cal": has_cal,
@@ -162,89 +124,9 @@ def parse_email_analysis(text: str) -> dict:
     }
 
 
-def match_folder_rule(msg: EmailMessage, rules: List[Any]) -> Optional[Any]:
-    """
-    Evaluates email against user-defined folder rules (sender role/pattern and keywords).
-    """
-    sender_low = (msg.sender_email or "").lower()
-    sender_name_low = (msg.sender_name or "").lower()
-    subject_low = (msg.subject or "").lower()
-    body_low = (msg.body or "").lower()
-
-    for rule in rules:
-        senders = rule.get_senders() if hasattr(rule, "get_senders") else rule.get("senders", [])
-        keywords = rule.get_keywords() if hasattr(rule, "get_keywords") else rule.get("keywords", [])
-
-        # Match senders
-        sender_matched = False
-        if senders:
-            for pat in senders:
-                pat_clean = pat.strip().lower()
-                if not pat_clean:
-                    continue
-                if pat_clean.startswith("*@"):
-                    domain = pat_clean[2:]
-                    if sender_low.endswith("@" + domain) or domain in sender_low:
-                        sender_matched = True
-                        break
-                elif pat_clean in sender_low or pat_clean in sender_name_low:
-                    sender_matched = True
-                    break
-
-        # Match keywords
-        keyword_matched = False
-        if keywords:
-            for kw in keywords:
-                kw_clean = kw.strip().lower()
-                if not kw_clean:
-                    continue
-                if kw_clean in subject_low or kw_clean in body_low:
-                    keyword_matched = True
-                    break
-
-        if (senders and sender_matched) or (keywords and keyword_matched):
-            return rule
-
-    return None
-
-
 def route_and_apply_folder(msg: EmailMessage, db: Optional[Any] = None) -> str:
-    """
-    Determines destination folder for an email based on DB rules, or falls back to INBOX.
-    Also syncs to Gmail API label if enabled and authenticated.
-    """
-    from app.database.database import SessionLocal
-    from app.database.models import EmailFolderRuleRecord
-
-    close_db = False
-    if db is None:
-        db = SessionLocal()
-        close_db = True
-
-    target_folder = msg.folder or "INBOX"
-    should_sync_gmail = False
-
-    try:
-        rules = db.query(EmailFolderRuleRecord).order_by(EmailFolderRuleRecord.created_at.desc()).all()
-        matched = match_folder_rule(msg, rules)
-        if matched:
-            target_folder = matched.folder_name
-            should_sync_gmail = matched.auto_apply_gmail_label
-    except Exception as exc:
-        logger.debug(f"Lỗi khi tra cứu rules: {exc}")
-    finally:
-        if close_db:
-            db.close()
-
-    # Synchronize to Gmail Label if message came from Gmail
-    if should_sync_gmail and msg.id and msg.id.startswith("gmail-"):
-        try:
-            if gmail_service.is_authenticated():
-                gmail_service.add_label_to_message(msg.id, target_folder)
-        except Exception as exc:
-            logger.debug(f"Không thể sync label lên Gmail: {exc}")
-
-    return target_folder
+    """Legacy analysis helper has no authority to apply labels; ingestion owns project routing."""
+    return msg.folder or "INBOX"
 
 
 class EmailAgent:
@@ -289,105 +171,25 @@ class EmailAgent:
         return results
 
     def analyze_single_email(self, msg: EmailMessage, summarize_pdf_attachment: bool = True) -> EmailAnalysisResult:
-        # 1. Determine folder routing
-        target_folder = route_and_apply_folder(msg)
-        msg.folder = target_folder
-
-        # 2. Summarize attached PDF if present
+        # Standalone analysis remains read-only. Project persistence/routing uses email_ingest.
+        from app.services.email_analysis import analyze_email_context
+        context = f"Tiêu đề: {msg.subject}\nNgười gửi: {msg.sender_name} <{msg.sender_email}>\nThời gian nhận: {msg.received_time}\nNội dung:\n{msg.body}"
         pdf_filename = None
-        pdf_summary = None
-        if summarize_pdf_attachment and msg.attachments:
-            for att in msg.attachments:
-                if att.is_pdf and att.data:
-                    try:
-                        from app.agents.summary_agent import summary_agent
-                        pdf_res = summary_agent.summarize_pdf(pdf_source=att.data, filename=att.filename)
-                        pdf_filename = att.filename
-                        pdf_summary = pdf_res.executive_summary or pdf_res.full_markdown
-                        logger.info(f"Đã tóm tắt thành công file PDF đính kèm '{att.filename}' của email '{msg.subject}'")
-                        break
-                    except Exception as att_err:
-                        logger.warning(f"Lỗi khi tóm tắt file PDF đính kèm '{att.filename}': {att_err}")
-
-        # 3. Build prompt with safe body truncation to prevent context overflow and speed up inference
-        raw_body = (msg.body or "").strip()
-        if len(raw_body) > 3000:
-            truncated_body = raw_body[:3000] + "\n\n[...Nội dung email dài đã được lược bớt để phân tích trọng tâm...]"
-        else:
-            truncated_body = raw_body or "(Không có nội dung văn bản)"
-
-        pdf_context = f"\n- Tóm tắt tệp PDF đính kèm ({pdf_filename}):\n{pdf_summary}\n" if pdf_summary else ""
-        prompt = (
-            f"Thông tin email:\n"
-            f"- Thư mục / Nhãn: {target_folder}\n"
-            f"- Người gửi: {msg.sender_name} <{msg.sender_email}>\n"
-            f"- Tiêu đề: {msg.subject}\n"
-            f"- Thời gian nhận: {msg.received_time}\n"
-            f"- File đính kèm: {', '.join([a.filename for a in msg.attachments]) if msg.attachments else 'Không có'}\n"
-            f"{pdf_context}\n"
-            f"Nội dung email:\n"
-            f"```text\n{truncated_body}\n```\n\n"
-            f"Hãy phân tích email này theo đúng cấu trúc chuẩn của Trợ lý Email."
-        )
-
-        response: LLMResponse = chat_with_llm(
-            message=prompt,
-            system_prompt=SYSTEM_EMAIL_PROMPT,
-            model=self.model,
-        )
-
-        # Fallback to heuristic analysis if LLM connection failed
-        if response.content.startswith("Lỗi kết nối Ollama"):
-            parsed = parse_email_analysis(f"Tiêu đề: {msg.subject}\n{truncated_body}")
-            clean_summary = (
-                f"### Tóm Tắt Email\n\n"
-                f"- **Người gửi**: {msg.sender_name or msg.sender_email}\n"
-                f"- **Tiêu đề**: {msg.subject}\n"
-                f"- **Thời gian**: {msg.received_time}\n"
-                f"- **Mức độ khẩn cấp**: {parsed['urgency']}\n"
-                f"- **Phân loại**: {parsed['category']}\n\n"
-                f"**Nội dung tóm tắt**:\n{truncated_body[:500]}..."
-            )
-            return EmailAnalysisResult(
-                id=msg.id,
-                message_id=msg.id,
-                subject=msg.subject,
-                sender=f"{msg.sender_name} <{msg.sender_email}>",
-                received_time=msg.received_time,
-                summary=clean_summary,
-                urgency=parsed["urgency"],
-                category=parsed["category"],
-                folder=target_folder,
-                pdf_filename=pdf_filename,
-                pdf_summary=pdf_summary,
-                has_issue_to_solve=parsed["has_issue"],
-                issue_description=parsed["issue_desc"],
-                has_calendar_event=parsed["has_cal"],
-                calendar_hint=parsed["cal_hint"],
-                full_analysis=clean_summary,
-                thinking_process="",
-            )
-
-        parsed = parse_email_analysis(response.content)
-
+        if summarize_pdf_attachment:
+            pdfs = [attachment for attachment in msg.attachments if attachment.is_pdf]
+            for attachment in pdfs:
+                from app.services.document_processing import extract_pdf_context
+                extracted = extract_pdf_context(attachment.data, attachment.filename)
+                pdf_filename = attachment.filename
+                context += f"\nPDF {attachment.filename}:\n{extracted.pdf.full_text}"
+        analysis, thinking, _map_reduce = analyze_email_context(context, self.model)
         return EmailAnalysisResult(
-            id=msg.id,
-            message_id=msg.id,
-            subject=msg.subject,
-            sender=f"{msg.sender_name} <{msg.sender_email}>",
-            received_time=msg.received_time,
-            summary=response.content,
-            urgency=parsed["urgency"],
-            category=parsed["category"],
-            folder=target_folder,
-            pdf_filename=pdf_filename,
-            pdf_summary=pdf_summary,
-            has_issue_to_solve=parsed["has_issue"],
-            issue_description=parsed["issue_desc"],
-            has_calendar_event=parsed["has_cal"],
-            calendar_hint=parsed["cal_hint"],
-            full_analysis=response.content,
-            thinking_process=response.thought,
+            id=msg.id, message_id=msg.id, subject=msg.subject,
+            sender=f"{msg.sender_name} <{msg.sender_email}>", received_time=msg.received_time,
+            summary=analysis.markdown(), full_analysis=analysis.markdown(), thinking_process=thinking,
+            urgency=analysis.urgency, has_issue_to_solve=analysis.has_issue_to_solve,
+            issue_description=analysis.issue_description, has_calendar_event=analysis.has_calendar_event,
+            calendar_hint=analysis.calendar_hint, folder=msg.folder, pdf_filename=pdf_filename,
         )
 
     def generate_daily_digest(
@@ -397,7 +199,7 @@ class EmailAgent:
     ) -> Dict[str, Any]:
         """
         Aggregates and summarizes all emails received on target_date,
-        clustering them into categories (Submissions, Notices, Inquiries, Urgent, Tasks).
+        grouping them by sender relationship.
         Generates actionable executive summary and task list.
         """
         now_vn = datetime.now(tz=VN_TZ)
@@ -424,7 +226,7 @@ class EmailAgent:
                             "received_time": r.received_time or r_date,
                             "folder": r.folder or "INBOX",
                             "urgency": r.urgency or "Trung bình",
-                            "category": r.category or "Khác",
+                            "sender_role": r.sender_role,
                             "has_attachments": r.has_attachments,
                             "pdf_filename": r.pdf_filename,
                             "pdf_summary": r.pdf_summary,
@@ -441,7 +243,7 @@ class EmailAgent:
                             "received_time": r.received_time or date_str,
                             "folder": r.folder or "INBOX",
                             "urgency": r.urgency or "Trung bình",
-                            "category": r.category or "Khác",
+                            "sender_role": r.sender_role,
                             "has_attachments": r.has_attachments,
                             "pdf_filename": r.pdf_filename,
                             "pdf_summary": r.pdf_summary,
@@ -450,21 +252,14 @@ class EmailAgent:
             finally:
                 db.close()
 
-        # Grouping by category
-        categories: Dict[str, List[Dict[str, Any]]] = {
-            "Nộp bài": [],
-            "Học vụ": [],
-            "Thắc mắc": [],
-            "Công việc": [],
-            "Khẩn cấp": [],
-            "Khác": [],
-        }
+        # Keep the existing digest response shape for its PDF consumer; groups now use sender relationship.
+        categories: Dict[str, List[Dict[str, Any]]] = {"nội bộ": [], "khách": [], "Chưa gán": []}
 
         urgent_count = 0
         pdf_count = 0
 
         for em in items:
-            cat = em.get("category") or "Khác"
+            cat = em.get("sender_role") or "Chưa gán"
             if cat not in categories:
                 categories[cat] = []
             categories[cat].append(em)
@@ -492,18 +287,10 @@ class EmailAgent:
 
         executive_summary = "\n".join(summary_points)
 
-        # Action items
-        action_items = []
-        if categories.get("Nộp bài"):
-            action_items.append(f"Kiểm tra và lưu trữ danh sách {len(categories['Nộp bài'])} bài tập/đồ án sinh viên đã nộp.")
-        if categories.get("Khẩn cấp"):
-            action_items.append(f"Xử lý khẩn cấp các vấn đề phát sinh từ {len(categories['Khẩn cấp'])} email báo cáo sự cố.")
-        if categories.get("Thắc mắc"):
-            action_items.append(f"Soạn thảo nội dung phản hồi giải đáp {len(categories['Thắc mắc'])} thắc mắc của sinh viên.")
-        if categories.get("Học vụ"):
-            action_items.append(f"Cập nhật các thông báo học vụ và thời hạn đăng ký ({len(categories['Học vụ'])} email).")
+        action_items = [f"Rà soát email: {em.get('subject', '')}" for em in items
+                        if em.get("has_issue_to_solve") or em.get("has_calendar_event")]
         if not action_items:
-            action_items.append("Đã xử lý và kiểm duyệt toàn bộ email trong ngày, không có cảnh báo tồn đọng.")
+            action_items.append("Chưa có hành động được ghi nhận từ các email trong ngày.")
 
         return {
             "target_date": date_str,

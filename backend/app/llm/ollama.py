@@ -125,6 +125,66 @@ def chat_with_llm_safe(
     return chat_with_llm(message, system_prompt, history, model, temperature, timeout_secs)
 
 
+def chat_with_llm_stream(message, emit, system_prompt=None, history=None, model=None, temperature=0.6):
+    from app.llm.streaming import VisibleText, generate_stream
+
+    messages = ([{"role": "system", "content": system_prompt}] if system_prompt else [])
+    messages.extend({"role": item["role"], "content": item["content"]} for item in history or []
+                    if item.get("role") in ("user", "assistant") and isinstance(item.get("content"), str))
+    messages.append({"role": "user", "content": message})
+    with SessionLocal() as db:
+        provider, chosen = resolve_model(db, model)
+        fallback_id = runtime(db).fallback_model_id
+    start, used_fallback, published = time.perf_counter(), False, False
+    while True:
+        visible, tagged_thinking = VisibleText(), []
+        emit({"type": "model", "provider_id": provider.id, "model_id": chosen.model_id, "fallback_used": used_fallback})
+        result = None
+        try:
+            for event in generate_stream(provider, chosen, messages, temperature, settings.llm_timeout or settings.ollama_timeout):
+                if event["type"] == "result":
+                    result = event["completion"]
+                elif event["type"] == "delta":
+                    text = visible.feed(event["text"])
+                    if text:
+                        published = True
+                        emit({"type": "delta", "text": text})
+                    thinking = visible.take_thinking()
+                    if thinking:
+                        published = True
+                        tagged_thinking.append(thinking)
+                        emit({"type": "summary", "text": thinking})
+                else:
+                    if event["type"] == "summary":
+                        published = True
+                    emit(event)
+            text = visible.feed("", final=True)
+            if text:
+                published = True
+                emit({"type": "delta", "text": text})
+            thinking = visible.take_thinking()
+            if thinking:
+                tagged_thinking.append(thinking)
+                emit({"type": "summary", "text": thinking})
+            break
+        except LLMError as exc:
+            if published or used_fallback or not exc.out_of_memory or not provider.is_local_runtime or not fallback_id or fallback_id == chosen.id:
+                raise
+            with SessionLocal() as db:
+                provider, chosen = resolve_model(db, fallback_id)
+            if not provider.is_local_runtime:
+                raise LLMError("Fallback VRAM cần trỏ đến máy chủ cục bộ.", 422) from exc
+            used_fallback = True
+            emit({"type": "status", "text": "Máy chủ thiếu VRAM; chuyển sang model dự phòng đã cấu hình."})
+    if result is None:
+        raise LLMError("Provider chưa trả kết quả stream hoàn chỉnh.")
+    _, content = parse_thinking_and_content(result.content)
+    if not content.strip():
+        raise LLMError("Model chưa trả câu trả lời văn bản hoàn chỉnh.")
+    return LLMResponse(result.content, result.thinking or "".join(tagged_thinking), content, time.perf_counter() - start,
+                       provider.id, result.model, used_fallback, result.usage)
+
+
 def check_ollama_status() -> Dict[str, Any]:
     # Compatibility field in /api/chat/status; no endpoint probing on status requests.
     with SessionLocal() as db:

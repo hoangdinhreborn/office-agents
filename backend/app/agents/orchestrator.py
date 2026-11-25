@@ -6,7 +6,8 @@ from app.agents.calendar_agent import calendar_agent, CalendarExtractionResult
 from app.agents.email_agent import email_agent, EmailAnalysisResult, SentEmailResult
 from app.agents.solution_agent import solution_agent, SolutionResult
 from app.agents.summary_agent import summary_agent, SummaryResult
-from app.llm.ollama import chat_with_llm, extract_json_from_response, LLMResponse
+from app.llm.ollama import chat_with_llm, chat_with_llm_safe, extract_json_from_response, LLMResponse
+from app.services.llm_settings import LLMError
 from app.llm.prompts import SYSTEM_ORCHESTRATOR_PROMPT
 
 
@@ -62,6 +63,13 @@ class AgentOrchestrator:
 
     def __init__(self, model: Optional[str] = None):
         self.model = model
+
+    def detect_intent(self, message: str, model: Optional[str] = None):
+        response = chat_with_llm_safe(message=f"Yêu cầu người dùng:\n{message}", system_prompt=INTENT_ROUTER_PROMPT, model=model or self.model)
+        data = extract_json_from_response(response.content)
+        if not isinstance(data, dict) or data.get("intent") not in ("SUMMARY", "SOLUTION", "EMAIL", "EMAIL_SEND", "CALENDAR", "COMPOUND", "CHAT"):
+            raise LLMError("Provider chưa trả phân loại ý định hợp lệ.")
+        return data, response
 
     def route_and_execute(
         self,
@@ -216,10 +224,9 @@ class AgentOrchestrator:
             synthesis_prompt += f"--- KẾT QUẢ QUÉT EMAIL GMAIL ({len(email_results)} email) ---\n"
             for em in email_results:
                 synthesis_prompt += f"Email: {em.subject} ({em.sender})\n{em.summary}\n\n"
-        if calendar_result and calendar_result.scheduled_events:
-            synthesis_prompt += f"--- SỰ KIỆN ĐÃ ĐẶT LỊCH GOOGLE CALENDAR & NHẮC HẸN ---\n"
-            for ev in calendar_result.scheduled_events:
-                synthesis_prompt += f"- {ev.title}: {ev.start_time} (Nhắc trước {ev.reminder_minutes} phút) -> {ev.status_message}\n"
+        if calendar_result:
+            synthesis_prompt += "--- NHÁP LỊCH CHƯA DUYỆT, CHƯA TẠO SỰ KIỆN GOOGLE ---\n"
+            synthesis_prompt += json.dumps(calendar_result.drafts, ensure_ascii=False) + "\nKhông tuyên bố đã đặt lịch.\n"
 
         synthesis_prompt += (
             "\nHãy tổng hợp thành câu trả lời hoàn chỉnh, mạch lạc, chuyên nghiệp gửi tới người dùng. "

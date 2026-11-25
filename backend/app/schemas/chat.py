@@ -3,8 +3,8 @@ from pydantic import BaseModel, Field
 
 
 class ChatRequest(BaseModel):
-    message: str = Field(..., description="Yêu cầu từ người dùng")
-    resource_ids: List[str] = Field(default_factory=list)
+    message: str = Field(..., min_length=1, max_length=16000, description="Yêu cầu từ người dùng")
+    resource_ids: List[str] = Field(default_factory=list, max_length=30)
     model_id: Optional[str] = Field(None, min_length=1, max_length=128)
     session_id: Optional[str] = Field(None, description="Định danh phiên hội thoại (UUID)")
     folder_name: Optional[str] = Field(None, description="Nhãn Gmail chỉ định (vd: INBOX)")
@@ -14,6 +14,7 @@ class ChatRequest(BaseModel):
 
 class ChatResponse(BaseModel):
     response: str
+    referenced_source_names: List[str] = Field(default_factory=list)
     intent: str
     agents_invoked: List[str]
     thinking_process: str = ""
@@ -21,6 +22,8 @@ class ChatResponse(BaseModel):
     provider_id: Optional[str] = None
     model_id: Optional[str] = None
     fallback_used: bool = False
+    processing_steps: List[str] = Field(default_factory=list)
+    duration_seconds: Optional[float] = None
     summary_data: Optional[Dict[str, Any]] = None
     solution_data: Optional[Dict[str, Any]] = None
     email_data: Optional[List[Dict[str, Any]]] = None
@@ -45,6 +48,10 @@ class ChatMessageItem(BaseModel):
     provider_id: Optional[str] = None
     model_id: Optional[str] = None
     fallback_used: bool = False
+    processing_steps: List[str] = Field(default_factory=list)
+    duration_seconds: Optional[float] = None
+    calendar_drafts: List[Dict[str, Any]] = Field(default_factory=list)
+    referenced_source_names: List[str] = Field(default_factory=list)
     agents_invoked: List[str] = []
     created_at: str
 

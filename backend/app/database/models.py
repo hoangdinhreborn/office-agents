@@ -1,7 +1,7 @@
 from datetime import datetime
 import json
 import uuid
-from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Integer, String, Text, UniqueConstraint
+from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Index, Integer, String, Text, UniqueConstraint
 from app.database.database import Base
 
 
@@ -64,7 +64,18 @@ class DocumentRecord(Base):
     total_pages = Column(Integer, default=1)
     executive_summary = Column(Text, nullable=True)
     full_markdown = Column(Text, nullable=True)
+    source_text = Column(Text, nullable=True)
+    pages_json = Column(Text, nullable=False, default="[]")
+    chunks_json = Column(Text, nullable=False, default="[]")
+    is_ocr = Column(Boolean, nullable=False, default=False)
+    is_map_reduce = Column(Boolean, nullable=False, default=False)
+    processing_warning = Column(Text, nullable=True)
     deadlines_json = Column(Text, default="[]")
+    solution_options_json = Column(Text, nullable=False, default="[]")
+    constraint_history_json = Column(Text, nullable=False, default="[]")
+    solution_revision = Column(Integer, nullable=False, default=0)
+    selected_solution_id = Column(String(36), nullable=True)
+    replied_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 
     def set_deadlines(self, items: list):
@@ -75,6 +86,19 @@ class DocumentRecord(Base):
             return json.loads(self.deadlines_json)
         except Exception:
             return []
+
+
+class CalendarDraftRecord(Base):
+    __tablename__ = "calendar_drafts"
+
+    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    project_id = Column(String(36), ForeignKey("projects.id"), nullable=False, index=True)
+    resource_id = Column(String(128), nullable=True, index=True)
+    session_id = Column(String(36), ForeignKey("chat_sessions.id"), nullable=True, index=True)
+    draft_json = Column(Text, nullable=False)
+    revision = Column(Integer, nullable=False, default=1)
+    approved_event_id = Column(String(36), ForeignKey("calendar_events.id"), nullable=True)
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
 
 
 class CalendarRecord(Base):
@@ -92,6 +116,17 @@ class CalendarRecord(Base):
     source_reference = Column(String(255), nullable=True)
     ics_path = Column(String(500), nullable=True)
     synced_desktop = Column(Boolean, default=False)
+    draft_id = Column(String(36), ForeignKey("calendar_drafts.id"), nullable=True, index=True)
+    resource_id = Column(String(128), nullable=True)
+    all_day = Column(Boolean, nullable=False, default=False)
+    recurrence_json = Column(Text, nullable=False, default="[]")
+    deadline_date = Column(String(10), nullable=True)
+    stable_hash = Column(String(64), nullable=True)
+    google_event_id = Column(String(128), nullable=True)
+    google_link = Column(Text, nullable=True)
+    definition_json = Column(Text, nullable=True)
+    status = Column(String(20), nullable=False, default="legacy")
+    __table_args__ = (Index("uq_calendar_stable_hash", "stable_hash", unique=True),)
     created_at = Column(DateTime, default=datetime.utcnow)
 
 
@@ -108,9 +143,11 @@ class SolutionRecord(Base):
 
 class EmailProcessedRecord(Base):
     __tablename__ = "emails_processed"
+    __table_args__ = (Index("uq_email_project_source_message", "project_id", "source", "provider_message_id", unique=True),)
 
-    id = Column(String(128), primary_key=True)  # Provider message id (e.g. gmail-xxx, graph-xxx, desktop-xxx)
+    id = Column(String(128), primary_key=True)  # Internal identity; legacy rows retain their original IDs.
     project_id = Column(String(36), ForeignKey("projects.id"), index=True)
+    provider_message_id = Column(String(128), nullable=True)
     source = Column(String(50), nullable=False)  # "gmail", "graph", "desktop", "imap", "eml"
     subject = Column(String(500), default="(Không có tiêu đề)")
     sender_email = Column(String(255), default="")
@@ -119,7 +156,7 @@ class EmailProcessedRecord(Base):
     received_time = Column(String(100), default="")
     folder = Column(String(100), default="INBOX")
     urgency = Column(String(20), default="Trung bình")  # "Thấp", "Trung bình", "Cao", "Khẩn cấp"
-    category = Column(String(50), default="Khác")  # "Nộp bài", "Học vụ", "Thắc mắc", "Công việc", "Khẩn cấp", "Khác"
+    sender_role = Column(String(20), nullable=True)
     body = Column(Text, nullable=True)
     body_snippet = Column(Text, nullable=True)
     summary = Column(Text, nullable=True)  # Toàn bộ nội dung phân tích Markdown
@@ -132,11 +169,37 @@ class EmailProcessedRecord(Base):
     pdf_attachments_count = Column(Integer, default=0)
     pdf_filename = Column(String(255), nullable=True)
     pdf_summary = Column(Text, nullable=True)
+    pdf_metadata_json = Column(Text, nullable=True)
+    solution_options_json = Column(Text, nullable=False, default="[]")
+    constraint_history_json = Column(Text, nullable=False, default="[]")
+    solution_revision = Column(Integer, nullable=False, default=0)
+    selected_solution_id = Column(String(36), nullable=True)
+    replied_at = Column(DateTime, nullable=True)
+    schedule_draft_json = Column(Text, nullable=True)
     calendar_events_count = Column(Integer, default=0)
     solution_generated = Column(Boolean, default=False)
     status = Column(String(50), default="processed")  # "processed", "skipped", "error"
     error_message = Column(Text, nullable=True)
+    processing_stage = Column(String(255), nullable=True)
     processed_at = Column(DateTime, default=datetime.utcnow)
+
+
+class SentMailRecord(Base):
+    __tablename__ = "sent_mails"
+
+    id = Column(String(36), primary_key=True)
+    project_id = Column(String(36), ForeignKey("projects.id"), nullable=False, index=True)
+    resource_id = Column(String(128), nullable=False, index=True)
+    solution_id = Column(String(36), nullable=False)
+    request_hash = Column(String(64), nullable=False)
+    payload_json = Column(Text, nullable=False)
+    rfc_message_id = Column(String(255), nullable=False, unique=True)
+    google_message_id = Column(String(128), nullable=True)
+    google_thread_id = Column(String(128), nullable=True)
+    status = Column(String(20), nullable=False, default="sending")
+    error_message = Column(Text, nullable=True)
+    sent_at = Column(DateTime, nullable=True)
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
 
 
 class EmailFolderRuleRecord(Base):
@@ -213,7 +276,7 @@ class ChatMessageRecord(Base):
     __tablename__ = "chat_messages"
 
     id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
-    session_id = Column(String(36), index=True, nullable=False)
+    session_id = Column(String(36), ForeignKey("chat_sessions.id", ondelete="CASCADE"), index=True, nullable=False)
     role = Column(String(20), nullable=False)  # "user", "ai"
     content = Column(Text, nullable=False)
     thinking_process = Column(Text, default="")

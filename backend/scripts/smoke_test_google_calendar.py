@@ -73,7 +73,7 @@ def run_smoke_test():
     print("2. Đang tạo sự kiện thử nghiệm...")
     try:
         res = google_calendar.create_event(
-            title="[Local AI Assistant] Cuộc hẹn kiểm thử tự động",
+            title="[deskhive-harness] Cuộc hẹn kiểm thử tự động",
             start_time=start_time,
             end_time=end_time,
             description="Sự kiện kiểm thử kết nối Google Calendar API v3",

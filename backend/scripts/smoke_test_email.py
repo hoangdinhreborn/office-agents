@@ -40,7 +40,7 @@ def create_sample_eml(destination_path: Path):
 
     body_content = (
         "Chào toàn thể đội ngũ,\n\n"
-        "Chúng ta sẽ có buổi họp rà soát và bàn giao dự án Local AI Assistant vào lúc "
+        "Chúng ta sẽ có buổi họp rà soát và bàn giao dự án deskhive-harness vào lúc "
         "15h30 chiều mai tại phòng họp chính.\n"
         "Vui lòng chuẩn bị tài liệu báo cáo đầy đủ.\n\n"
         "Trân trọng,\nTech Lead"

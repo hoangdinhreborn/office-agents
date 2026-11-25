@@ -7,7 +7,7 @@ from app.database.models import ProjectRecord
 
 
 def require_project(db: Session, project_id: str, *, include_deleted: bool = False) -> ProjectRecord:
-    project = db.get(ProjectRecord, project_id)
+    project = db.get(ProjectRecord, project_id, populate_existing=True)
     if project is None or (project.deleted_at is not None and not include_deleted):
         raise HTTPException(404, "Không tìm thấy dự án.")
     return project

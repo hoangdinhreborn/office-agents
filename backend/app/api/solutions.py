@@ -8,8 +8,18 @@ from app.services.projects import owned_query, project_scope
 from app.agents.solution_agent import solution_agent
 from app.database.database import get_db
 from app.database.models import SolutionRecord
+from app.schemas.solution import RefineSolutionsRequest, ResourceSolutionsResponse
+from app.services.solution_workflow import refine_resource_solutions
 
 router = APIRouter(prefix="/api/solutions", tags=["Solutions & Problem Solving"])
+
+
+@router.post("/resources/{resource_id}/refine", response_model=ResourceSolutionsResponse)
+def refine_solutions_endpoint(
+    resource_id: str, req: RefineSolutionsRequest,
+    project_id: str = Depends(project_scope), db: Session = Depends(get_db),
+):
+    return refine_resource_solutions(db, project_id, resource_id, req)
 
 
 class ProposeSolutionRequest(BaseModel):

@@ -7,6 +7,7 @@ import pymupdf as fitz
 from zoneinfo import ZoneInfo
 
 from app.config import settings
+from app.services.report_citations import strip_report_citations
 
 logger = logging.getLogger(__name__)
 VN_TZ = ZoneInfo("Asia/Ho_Chi_Minh")
@@ -72,7 +73,7 @@ class DailyDigestPDFGenerator:
 
         total_emails = digest_data.get("total_emails", 0)
         categories = digest_data.get("categories", {})
-        executive_summary = digest_data.get("executive_summary", "Không có tóm tắt.")
+        executive_summary = strip_report_citations(digest_data.get("executive_summary", "Không có tóm tắt."))
         action_items = digest_data.get("action_items", [])
 
         # 1. Header Banner
@@ -101,7 +102,7 @@ class DailyDigestPDFGenerator:
                 # Add footer to current page
                 page.insert_text(
                     (MARGIN_LEFT, PAGE_HEIGHT - 25),
-                    "Local Multi-Agent AI Assistant  •  Báo cáo tự động On-Premise",
+                    "deskhive-harness  •  Báo cáo tự động On-Premise",
                     fontname=font_name if self.font_path else "helv",
                     fontsize=8,
                     color=(0.6, 0.6, 0.6),
@@ -219,7 +220,7 @@ class DailyDigestPDFGenerator:
 
                 page = _check_page_break(needed_h)
 
-                subj = em.get("subject", "(Không có tiêu đề)")
+                subj = strip_report_citations(em.get("subject", "(Không có tiêu đề)"))
                 sender = em.get("sender_name") or em.get("sender_email") or "Người gửi ẩn danh"
                 r_time = em.get("received_time", "")
                 urgency = em.get("urgency", "Trung bình")
@@ -256,7 +257,8 @@ class DailyDigestPDFGenerator:
 
                 # PDF attachment summary snippet if present
                 if em.get("pdf_summary"):
-                    pdf_snip = f"Tóm tắt file PDF: {em.get('pdf_summary')[:100]}..."
+                    pdf_summary = strip_report_citations(em["pdf_summary"])
+                    pdf_snip = f"Tóm tắt file PDF: {pdf_summary[:100]}..."
                     page.insert_text(
                         (MARGIN_LEFT + 22, curr_y + 38),
                         pdf_snip,
@@ -287,6 +289,7 @@ class DailyDigestPDFGenerator:
             curr_y += 28.0
 
             for act in action_items:
+                act = strip_report_citations(act)
                 page = _check_page_break(18)
                 page.insert_text(
                     (MARGIN_LEFT + 12, curr_y + 10),
@@ -300,7 +303,7 @@ class DailyDigestPDFGenerator:
         # Final page footer
         page.insert_text(
             (MARGIN_LEFT, PAGE_HEIGHT - 25),
-            f"Trang {len(doc)} / {len(doc)}  •  Local Multi-Agent AI Assistant  •  Báo cáo tự động On-Premise",
+            f"Trang {len(doc)} / {len(doc)}  •  deskhive-harness  •  Báo cáo tự động On-Premise",
             fontname=font_name if self.font_path else "helv",
             fontsize=8,
             color=(0.5, 0.5, 0.5),

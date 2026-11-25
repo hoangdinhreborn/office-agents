@@ -28,6 +28,8 @@ class PDFDocument:
     is_scan: bool = False
     file_size_bytes: int = 0
     warning: Optional[str] = None
+    ocr_used: bool = False
+    ocr_pages: List[int] = field(default_factory=list)
 
 
 def _check_pdf_magic_bytes(data: bytes) -> bool:
@@ -138,25 +140,33 @@ def load_pdf(
         avg_chars_per_page = total_extracted_chars / total_pages
         is_scan = avg_chars_per_page < 30
         warning = None
+        ocr_pages: List[int] = []
 
-        if is_scan:
+        scan_pages = [p.page_number for p in pages if len(p.text) < 30]
+        if scan_pages:
             if should_ocr:
                 logger.info(f"Phát hiện PDF scan '{doc_name}'. Đang tiến hành OCR fallback...")
-                ocr_text_parts: List[str] = []
                 ocr_success = False
 
-                for page_idx in range(total_pages):
+                for page_number in scan_pages:
+                    page_idx = page_number - 1
                     page = doc[page_idx]
                     ocr_result = _ocr_page(page)
                     if ocr_result:
                         ocr_success = True
+                        ocr_pages.append(page_idx + 1)
                         pages[page_idx].text = ocr_result
                         pages[page_idx].has_text = True
-                        ocr_text_parts.append(f"--- Trang {page_idx + 1} (OCR) ---\n{ocr_result}")
 
                 if ocr_success:
-                    full_text_parts = ocr_text_parts
-                    warning = "Tài liệu được xử lý bằng OCR do không có lớp văn bản gốc."
+                    full_text_parts = [
+                        f"--- Trang {p.page_number} ---\n{p.text}"
+                        for p in pages if p.text
+                    ]
+                    warning = f"Đã OCR {len(ocr_pages)} trang thiếu lớp văn bản."
+                    missing_pages = [n for n in scan_pages if not pages[n - 1].text.strip()]
+                    if missing_pages:
+                        warning += " Không đọc được các trang: " + ", ".join(map(str, missing_pages)) + "."
                 else:
                     warning = (
                         "Phát hiện tài liệu scan/ảnh nhưng OCR chưa trích xuất được văn bản (hãy kiểm tra cài đặt Tesseract)."
@@ -179,6 +189,8 @@ def load_pdf(
             is_scan=is_scan,
             file_size_bytes=file_size,
             warning=warning,
+            ocr_used=bool(ocr_pages),
+            ocr_pages=ocr_pages,
         )
     finally:
         doc.close()

@@ -2,7 +2,7 @@ import os
 from pathlib import Path
 from typing import List, Union
 from dotenv import load_dotenv
-from pydantic import field_validator
+from pydantic import Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 # Single Source of Truth: Locate the root .env file
@@ -20,7 +20,7 @@ if ROOT_ENV_FILE.is_file() and os.getenv("APP_ENV") != "test":
 
 
 class Settings(BaseSettings):
-    app_name: str = "Local Multi-Agent AI Assistant"
+    app_name: str = "deskhive-harness"
     app_env: str = "development"
     owner_name: str = "Chủ máy"
     owner_email: str = ""
@@ -44,6 +44,8 @@ class Settings(BaseSettings):
     calendar_provider: str = "google"  # "google", "local"
     calendar_default_reminder_minutes: int = 30
     calendar_timezone: str = "Asia/Ho_Chi_Minh"
+    calendar_api_timeout: float = Field(30, ge=1, le=300)
+    gmail_api_timeout: float = Field(30, ge=1, le=300)
 
     # Google Cloud Integration (Calendar & Gmail)
     google_credentials_path: str = "data/tokens/google_credentials.json"
@@ -51,6 +53,8 @@ class Settings(BaseSettings):
     google_gmail_token_path: str = "data/tokens/google_gmail_token.json"
     gmail_label: str = "INBOX"
     google_oauth_port: int = 0
+    google_oauth_redirect_uri: str = "http://localhost:8000/api/auth/google/callback"
+    google_oauth_frontend_url: str = "http://localhost:3000"
 
     # Optional: Google OAuth Credentials & Refresh Tokens directly via .env (zero-file setup)
     google_client_id: str = ""
@@ -69,6 +73,17 @@ class Settings(BaseSettings):
     pdf_max_size_mb: int = 50
     pdf_max_pages: int = 1000
     pdf_ocr_enabled: bool = False
+    pdf_map_reduce_threshold_tokens: int = Field(3500, ge=128)
+    pdf_chunk_tokens: int = Field(2500, ge=128)
+    pdf_chunk_overlap_tokens: int = Field(200, ge=0)
+
+    @model_validator(mode="after")
+    def valid_pdf_token_budgets(self):
+        if self.pdf_chunk_tokens > self.pdf_map_reduce_threshold_tokens:
+            raise ValueError("PDF_CHUNK_TOKENS không được lớn hơn PDF_MAP_REDUCE_THRESHOLD_TOKENS.")
+        if self.pdf_chunk_overlap_tokens >= self.pdf_chunk_tokens:
+            raise ValueError("PDF_CHUNK_OVERLAP_TOKENS phải nhỏ hơn PDF_CHUNK_TOKENS.")
+        return self
 
     # Database
     database_url: str = "sqlite:///./data/assistant.db"

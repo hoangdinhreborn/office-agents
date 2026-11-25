@@ -1,261 +1,133 @@
-from datetime import datetime, timedelta
-import math
-from pathlib import Path
-from typing import Any, Dict, List, Optional, Union
-from fastapi import APIRouter, Depends, HTTPException, Query
-from fastapi.responses import FileResponse
+from typing import Optional
+
+from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
-from app.services.projects import owned_query, project_scope, require_project
-from app.agents.calendar_agent import calendar_agent
-from app.config import settings
 from app.database.database import get_db
-from app.database.models import CalendarRecord
-from app.integrations.calendar import calendar_service
-from app.schemas.pagination import PaginatedResponse
+from app.database.models import CalendarDraftRecord, CalendarRecord, ProjectRecord
+from app.integrations.google_calendar import google_calendar
+from app.schemas.calendar import CalendarDraft, DraftCreate, DraftUpdate, EventCreate
+from app.services import calendar_workflow as workflow
+from app.services.projects import owned_query, project_scope
 
-router = APIRouter(prefix="/api/calendar", tags=["Calendar & Google Workspace Reminders"])
+router = APIRouter(prefix="/api/calendar", tags=["Calendar drafts & Google Calendar"])
 
 
 class ExtractScheduleRequest(BaseModel):
-    text: str = Field(..., description="Văn bản, nội dung email hoặc prompt cần trích xuất lịch")
-    source_type: str = Field("prompt", description="Nguồn dữ liệu: 'prompt', 'email', hoặc 'document'")
-    source_reference: Optional[str] = Field(None, description="Tên file hoặc tiêu đề email nguồn")
-    reminder_minutes: Optional[int] = Field(None, description="Thời gian nhắc trước (phút). Mặc định 30 phút")
-    dry_run: bool = Field(False, description="Chế độ chạy thử: chỉ trích xuất và hiển thị xem trước, không tạo file .ics")
-
-
-class ManualEventCreateRequest(BaseModel):
-    title: str
-    start_time: str
-    end_time: Optional[str] = None
+    text: Optional[str] = Field(None, max_length=2_000_000)
+    resource_id: Optional[str] = Field(None, max_length=128)
+    source_type: str = "prompt"
+    source_reference: Optional[str] = None
     reminder_minutes: Optional[int] = None
-    location: Optional[str] = ""
-    description: Optional[str] = ""
-    attendees: Optional[List[str]] = []
-    source_type: Optional[str] = "prompt"
+    dry_run: bool = True
 
 
+class ConflictRequest(BaseModel):
+    draft: CalendarDraft
+    exclude_event_id: Optional[str] = None
+
+
+@router.post("/drafts")
+def create_draft(req: DraftCreate, project_id: str = Depends(project_scope), db: Session = Depends(get_db)):
+    rows = workflow.add_drafts(db, project_id, [req.draft.model_dump(mode="json", by_alias=True)], req.resource_id)
+    db.commit()
+    return workflow.draft_payload(db, rows[0])
+
+
+@router.get("/drafts")
+def list_drafts(resource_id: Optional[str] = None, project_id: str = Depends(project_scope), db: Session = Depends(get_db)):
+    query = owned_query(db, CalendarDraftRecord, project_id)
+    if resource_id:
+        workflow.resource(db, project_id, resource_id)
+        query = query.filter_by(resource_id=resource_id)
+    return [workflow.draft_payload(db, row) for row in query.order_by(CalendarDraftRecord.created_at.desc()).all()]
+
+
+@router.get("/drafts/{draft_id}")
+def read_draft(draft_id: str, project_id: str = Depends(project_scope), db: Session = Depends(get_db)):
+    return workflow.draft_payload(db, workflow.get_draft(db, project_id, draft_id))
+
+
+@router.patch("/drafts/{draft_id}")
+def save_draft(draft_id: str, req: DraftUpdate, project_id: str = Depends(project_scope), db: Session = Depends(get_db)):
+    return workflow.update_draft(db, workflow.get_draft(db, project_id, draft_id), req.draft, req.expected_revision)
+
+
+@router.post("/drafts/extract")
 @router.post("/extract-and-schedule")
-def extract_and_schedule_endpoint(
-    req: ExtractScheduleRequest,
-    project_id: str = Depends(project_scope), db: Session = Depends(get_db),
-) -> Dict[str, Any]:
-    """
-    Extracts events from text using DeepSeek-R1 reasoning and automatically schedules
-    them to Calendar with advance reminders.
-    Supports dry-run and sends ambiguous events to needs_confirmation.
-    """
-    rem = req.reminder_minutes if req.reminder_minutes is not None else require_project(db, project_id).default_reminder_minutes
-    result = calendar_agent.extract_and_schedule(
-        input_text=req.text,
-        source_type=req.source_type,
-        source_reference=req.source_reference,
-        default_reminder_minutes=rem,
-        auto_schedule=True,
-        dry_run=req.dry_run,
-    )
+def extract_schedule(req: ExtractScheduleRequest, project_id: str = Depends(project_scope), db: Session = Depends(get_db)):
+    # Compatibility path is draft-only even if a legacy client supplies dry_run=false.
+    return workflow.extract_drafts(db, project_id, req.resource_id, req.text)
 
-    # Persist scheduled events to DB only if not dry_run
-    if not req.dry_run:
-        for se in result.scheduled_events:
-            evt_obj = calendar_service.get_event(se.event_id)
-            if evt_obj:
-                existing = db.get(CalendarRecord, evt_obj.id)
-                if existing is not None and existing.project_id != project_id and not (project_id == "legacy" and existing.project_id is None):
-                    raise HTTPException(409, "Sự kiện đã thuộc dự án khác; không thể chuyển quyền sở hữu.")
-                rec = CalendarRecord(
-                    project_id=project_id,
-                    id=evt_obj.id,
-                    title=evt_obj.title,
-                    start_time=evt_obj.start_time,
-                    end_time=evt_obj.end_time,
-                    reminder_minutes=evt_obj.reminder_minutes,
-                    location=evt_obj.location,
-                    description=evt_obj.description,
-                    source_type=evt_obj.source_type,
-                    source_reference=evt_obj.source_reference,
-                    ics_path=se.ics_file,
-                    synced_desktop=se.cloud_synced,
-                )
-                db.merge(rec)
-        db.commit()
 
-    return {
-        "source_type": result.source_type,
-        "extracted_events": result.extracted_events,
-        "scheduled_events": [s.__dict__ for s in result.scheduled_events],
-        "needs_confirmation": result.needs_confirmation,
-        "dry_run": req.dry_run,
-        "thinking_process": result.thinking_process,
-    }
+@router.post("/conflicts")
+def check_conflicts(req: ConflictRequest, project_id: str = Depends(project_scope), db: Session = Depends(get_db)):
+    exclude = None
+    if req.exclude_event_id:
+        exclude = owned_query(db, CalendarRecord, project_id).filter_by(id=req.exclude_event_id).first()
+        if exclude is None:
+            raise HTTPException(404, "Không tìm thấy lịch cần đối chiếu trong dự án.")
+    try:
+        return {"conflicts": workflow.conflicts(db, req.draft, exclude)}
+    except ValueError as exc:
+        raise HTTPException(422, str(exc)) from None
+
+
+@router.post("/events")
+def approve_draft(req: EventCreate, project_id: str = Depends(project_scope), db: Session = Depends(get_db)):
+    return workflow.approve(db, project_id, req.draft_id, req.expected_revision, req.allow_conflicts)
 
 
 @router.post("/create")
-@router.post("/events")
-def create_manual_event_endpoint(
-    req: ManualEventCreateRequest,
-    project_id: str = Depends(project_scope), db: Session = Depends(get_db),
-) -> Dict[str, Any]:
-    """
-    Manually creates a calendar event with reminder and synchronizes to Google Calendar.
-    """
-    res = calendar_service.create_event(
-        title=req.title,
-        start_time=req.start_time,
-        end_time=req.end_time,
-        description=req.description or "",
-        location=req.location or "",
-        attendees=req.attendees,
-        reminder_minutes=req.reminder_minutes if req.reminder_minutes is not None else require_project(db, project_id).default_reminder_minutes,
-        source_type=req.source_type or "prompt",
-    )
-
-    evt = res["event"]
-    existing = db.get(CalendarRecord, evt["id"])
-    if existing is not None:
-        if existing.project_id != project_id and not (project_id == "legacy" and existing.project_id is None):
-            raise HTTPException(409, "Sự kiện đã thuộc dự án khác; không thể chuyển quyền sở hữu.")
-        return res
-    cloud_synced = res.get("cloud_synced", False)
-    rec = CalendarRecord(
-        project_id=project_id,
-        id=evt["id"],
-        title=evt["title"],
-        start_time=calendar_service.get_event(evt["id"]).start_time,
-        end_time=calendar_service.get_event(evt["id"]).end_time,
-        reminder_minutes=evt["reminder_minutes"],
-        location=evt["location"],
-        description=evt["description"],
-        source_type=evt["source_type"],
-        ics_path=res["ics_path"],
-        synced_desktop=cloud_synced,
-    )
-    db.add(rec)
-    db.commit()
-
-    return res
+def retired_create():
+    raise HTTPException(410, "Tạo và duyệt nháp qua /api/calendar/drafts rồi /api/calendar/events; không tạo lịch trực tiếp từ AI.")
 
 
-@router.get("/google/status")
-def google_calendar_status() -> Dict[str, Any]:
-    """
-    Returns configuration and authentication status of Google Calendar.
-    """
-    from app.integrations.google_calendar import google_calendar
-    return google_calendar.get_status()
+@router.post("/events/{event_id}/verify")
+def verify_event(event_id: str, project_id: str = Depends(project_scope), db: Session = Depends(get_db)):
+    return workflow.verify_event(db, project_id, event_id)
 
 
-@router.get("/upcoming")
-def list_upcoming_events(
-    hours: int = Query(48, ge=1, le=168, description="Số giờ tới để quét sự kiện sắp diễn ra"),
-    project_id: str = Depends(project_scope), db: Session = Depends(get_db),
-) -> Dict[str, Any]:
-    """
-    Returns upcoming events within the next specified hours for notifications and alert badges.
-    """
-    now = datetime.utcnow()
-    limit_time = now + timedelta(hours=hours)
-    records = owned_query(db, CalendarRecord, project_id).filter(
-        CalendarRecord.start_time >= now - timedelta(minutes=30),
-        CalendarRecord.start_time <= limit_time,
-    ).order_by(CalendarRecord.start_time.asc()).limit(20).all()
-
-    items = []
-    for r in records:
-        mins_until = int((r.start_time - now).total_seconds() / 60)
-        items.append({
-            "id": r.id,
-            "title": r.title,
-            "start_time": r.start_time.isoformat() if r.start_time else None,
-            "end_time": r.end_time.isoformat() if r.end_time else None,
-            "reminder_minutes": r.reminder_minutes,
-            "location": r.location,
-            "description": r.description,
-            "minutes_until": mins_until,
-            "is_imminent": 0 <= mins_until <= (r.reminder_minutes or 30),
-        })
-
-    return {
-        "upcoming_count": len(items),
-        "items": items,
-        "imminent_count": sum(1 for it in items if it["is_imminent"]),
-    }
+@router.delete("/events/{event_id}", status_code=204)
+def undo_event(event_id: str, project_id: str = Depends(project_scope), db: Session = Depends(get_db)):
+    workflow.delete_event(db, project_id, event_id)
+    return Response(status_code=204)
 
 
 @router.get("/events")
-def list_events_endpoint(
-    page: Optional[int] = Query(None, ge=1, description="Số trang (bắt đầu từ 1, để trống = trả về toàn bộ list)"),
-    page_size: int = Query(10, ge=1, le=100, description="Số lượng sự kiện mỗi trang"),
-    project_id: str = Depends(project_scope), db: Session = Depends(get_db),
-) -> Any:
-    """
-    Lists scheduled calendar events with optional pagination.
-    """
-    query = owned_query(db, CalendarRecord, project_id).order_by(CalendarRecord.start_time.asc())
+def list_events(project_id: Optional[str] = None, all_projects: bool = False,
+                page: Optional[int] = Query(None, ge=1), page_size: int = Query(10, ge=1, le=100), db: Session = Depends(get_db)):
+    query = db.query(CalendarRecord).filter(CalendarRecord.status != "deleted")
+    if all_projects:
+        query = query.join(ProjectRecord, ProjectRecord.id == CalendarRecord.project_id).filter(ProjectRecord.deleted_at.is_(None))
+    else:
+        selected = project_scope(project_id, db)
+        query = query.filter(CalendarRecord.project_id == selected)
+    query = query.order_by(CalendarRecord.start_time)
+    if page is None:
+        return [workflow.event_payload(row) for row in query.all()]
     total = query.count()
+    return {"items": [workflow.event_payload(row) for row in query.offset((page - 1) * page_size).limit(page_size).all()],
+            "total": total, "page": page, "page_size": page_size, "total_pages": max(1, (total + page_size - 1) // page_size)}
 
-    if page is not None:
-        offset = (page - 1) * page_size
-        records = query.offset(offset).limit(page_size).all()
-        items = [
-            {
-                "id": r.id,
-                "title": r.title,
-                "start_time": r.start_time.isoformat() if r.start_time else None,
-                "end_time": r.end_time.isoformat() if r.end_time else None,
-                "reminder_minutes": r.reminder_minutes,
-                "location": r.location,
-                "description": r.description,
-                "source_type": r.source_type,
-                "ics_path": r.ics_path,
-                "synced_desktop": r.synced_desktop,
-            }
-            for r in records
-        ]
-        total_pages = max(1, math.ceil(total / page_size)) if total > 0 else 1
-        return {
-            "items": items,
-            "total": total,
-            "page": page,
-            "page_size": page_size,
-            "total_pages": total_pages,
-        }
 
-    records = query.all()
-    if records:
-        return [
-            {
-                "id": r.id,
-                "title": r.title,
-                "start_time": r.start_time.isoformat() if r.start_time else None,
-                "end_time": r.end_time.isoformat() if r.end_time else None,
-                "reminder_minutes": r.reminder_minutes,
-                "location": r.location,
-                "description": r.description,
-                "source_type": r.source_type,
-                "ics_path": r.ics_path,
-                "synced_desktop": r.synced_desktop,
-            }
-            for r in records
-        ]
-    return []
+@router.get("/upcoming")
+def list_upcoming(hours: int = Query(48, ge=1, le=168), project_id: Optional[str] = None,
+                  all_projects: bool = False, db: Session = Depends(get_db)):
+    selected = None if all_projects else project_scope(project_id, db)
+    return workflow.upcoming(db, selected, hours)
+
+
+@router.get("/google/status")
+def google_calendar_status():
+    return google_calendar.get_status()
 
 
 @router.get("/download-ics/{event_id}")
-def download_ics_endpoint(event_id: str, project_id: str = Depends(project_scope), db: Session = Depends(get_db)):
-    """
-    Downloads RFC-5545 .ics file for calendar import.
-    """
+def download_ics(event_id: str, project_id: str = Depends(project_scope), db: Session = Depends(get_db)):
     record = owned_query(db, CalendarRecord, project_id).filter_by(id=event_id).first()
-    if not record:
-        raise HTTPException(404, "Không tìm thấy lịch trong dự án.")
-    ics_file = Path(record.ics_path) if record.ics_path else Path("data/calendar") / f"{event_id}.ics"
-    if not ics_file.exists():
-        raise HTTPException(status_code=404, detail="File .ics không tồn tại")
-    return FileResponse(
-        path=str(ics_file),
-        filename=f"event_{event_id[:8]}.ics",
-        media_type="text/calendar",
-    )
+    if record is None or record.status not in ("confirmed", "legacy"):
+        raise HTTPException(404, "Không tìm thấy lịch đã xác nhận trong dự án.")
+    return Response(content=workflow.ics_bytes(record), media_type="text/calendar; charset=utf-8",
+                    headers={"Content-Disposition": f'attachment; filename="event-{record.id}.ics"'})

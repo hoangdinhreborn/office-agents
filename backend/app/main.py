@@ -1,12 +1,13 @@
 from contextlib import asynccontextmanager
 from pathlib import Path
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, FileResponse, JSONResponse
 from fastapi.exceptions import RequestValidationError
 from fastapi.exception_handlers import request_validation_exception_handler
 from fastapi.staticfiles import StaticFiles
 
+from app.api.auth import router as auth_router
 from app.api.chat import router as chat_router
 from app.api.documents import router as documents_router
 from app.api.emails import router as emails_router
@@ -38,9 +39,9 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(
-    title="Local AI Assistant - Multi-Agent Framework",
+    title="deskhive-harness",
     version="1.0.0",
-    description="Local Multi-Agent AI Framework powered by DeepSeek-R1 (Reinforcement Learning) with Google Workspace (Gmail & Calendar) & PDF Integration",
+    description="Trợ lý dự án: email, PDF, giải pháp và lịch làm việc với nhiều nhà cung cấp AI.",
     lifespan=lifespan,
 )
 
@@ -54,6 +55,7 @@ app.add_middleware(
 )
 
 # Include API Routers
+app.include_router(auth_router)
 app.include_router(chat_router)
 app.include_router(documents_router)
 app.include_router(emails_router)
@@ -63,6 +65,19 @@ app.include_router(feedback_router)
 app.include_router(tasks_router)
 app.include_router(projects_router)
 app.include_router(llm_router)
+
+
+@app.middleware("http")
+async def hide_oauth_callback_query(request, call_next):
+    try:
+        return await call_next(request)
+    finally:
+        if request.url.path == "/api/auth/google/callback" or (
+            request.url.path == "/" and "state" in request.query_params
+        ):
+            # Uvicorn logs the scope after responding; never retain auth codes
+            # in its access-log request target, including invalid callbacks.
+            request.scope["query_string"] = b""
 
 
 @app.exception_handler(LLMError)
@@ -83,7 +98,10 @@ async def validation_error_handler(request, exc: RequestValidationError):
 
 @app.get("/api/account", tags=["Local account"])
 def local_account():
-    return {"name": settings.owner_name, "email": settings.owner_email, "role": "Chủ máy", "avatarUrl": ""}
+    from app.services.google_oauth import account_profile
+    profile = account_profile()
+    return {"name": (settings.owner_name if settings.owner_name != "Chủ máy" else profile.get("name")) or "Chủ máy",
+            "email": settings.owner_email or profile.get("email", ""), "role": "Chủ máy", "avatarUrl": ""}
 
 # Mount static folder
 static_path = Path(__file__).parent / "static"
@@ -92,16 +110,18 @@ if static_path.exists():
 
 
 @app.get("/", response_class=HTMLResponse, tags=["Dashboard Web UI"])
-def serve_dashboard():
-    """
-    Serves the modern interactive Web Dashboard.
-    """
+def serve_dashboard(request: Request):
+    """Serve the legacy dashboard or receive a Desktop client's loopback callback."""
+    query = request.query_params
+    if "state" in query and ("code" in query or "error" in query):
+        from app.api.auth import callback
+        return callback(request, state=query.get("state", ""), code=query.get("code", ""), error=query.get("error", ""))
     index_file = static_path / "index.html"
     if index_file.exists():
         return FileResponse(str(index_file))
-    return HTMLResponse("<h1>Local AI Assistant Backend Running</h1><p>Visit /docs for API documentation.</p>")
+    return HTMLResponse("<h1>deskhive-harness Backend Running</h1><p>Visit /docs for API documentation.</p>")
 
 
 @app.get("/health", tags=["Health"])
 def health() -> dict[str, str]:
-    return {"status": "ok", "app": "Local AI Assistant Multi-Agent Framework"}
+    return {"status": "ok", "app": "deskhive-harness"}
