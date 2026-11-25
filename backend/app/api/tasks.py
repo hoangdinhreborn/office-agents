@@ -7,6 +7,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
+from app.services.projects import owned_query, project_scope
 from app.database.database import get_db
 from app.database.models import TaskRecord
 
@@ -48,12 +49,12 @@ def list_tasks(
     status: Optional[str] = Query(None, description="Lọc trạng thái: pending, completed"),
     source_type: Optional[str] = Query(None, description="Lọc theo nguồn: email, pdf, prompt"),
     group: Optional[str] = Query(None, description="Nhóm thời gian: today, this_week"),
-    db: Session = Depends(get_db),
+    project_id: str = Depends(project_scope), db: Session = Depends(get_db),
 ) -> Dict[str, Any]:
     """
     Returns list of tasks with flexible filtering and grouping.
     """
-    query = db.query(TaskRecord)
+    query = owned_query(db, TaskRecord, project_id)
 
     if status and status != "all":
         query = query.filter(TaskRecord.status == status.lower().strip())
@@ -78,9 +79,9 @@ def list_tasks(
     tasks = query.order_by(TaskRecord.created_at.desc()).all()
 
     # Calculate summary counts
-    total_count = db.query(func.count(TaskRecord.id)).scalar() or 0
-    pending_count = db.query(func.count(TaskRecord.id)).filter(TaskRecord.status == "pending").scalar() or 0
-    completed_count = db.query(func.count(TaskRecord.id)).filter(TaskRecord.status == "completed").scalar() or 0
+    total_count = owned_query(db, TaskRecord, project_id).with_entities(func.count(TaskRecord.id)).scalar() or 0
+    pending_count = owned_query(db, TaskRecord, project_id).with_entities(func.count(TaskRecord.id)).filter(TaskRecord.status == "pending").scalar() or 0
+    completed_count = owned_query(db, TaskRecord, project_id).with_entities(func.count(TaskRecord.id)).filter(TaskRecord.status == "completed").scalar() or 0
 
     return {
         "items": [_format_task(t) for t in tasks],
@@ -93,7 +94,7 @@ def list_tasks(
 
 
 @router.post("")
-def create_task(req: TaskCreateRequest, db: Session = Depends(get_db)) -> Dict[str, Any]:
+def create_task(req: TaskCreateRequest, project_id: str = Depends(project_scope), db: Session = Depends(get_db)) -> Dict[str, Any]:
     """
     Creates a new task extracted from prompt, email, or PDF.
     """
@@ -110,6 +111,7 @@ def create_task(req: TaskCreateRequest, db: Session = Depends(get_db)) -> Dict[s
                 pass
 
     rec = TaskRecord(
+        project_id=project_id,
         id=str(uuid.uuid4()),
         title=req.title.strip(),
         due_date=parsed_due,
@@ -126,11 +128,11 @@ def create_task(req: TaskCreateRequest, db: Session = Depends(get_db)) -> Dict[s
 
 
 @router.patch("/{task_id}")
-def update_task(task_id: str, req: TaskUpdateRequest, db: Session = Depends(get_db)) -> Dict[str, Any]:
+def update_task(task_id: str, req: TaskUpdateRequest, project_id: str = Depends(project_scope), db: Session = Depends(get_db)) -> Dict[str, Any]:
     """
     Updates status, title, due_date, or priority of a task.
     """
-    rec = db.query(TaskRecord).filter(TaskRecord.id == task_id).first()
+    rec = owned_query(db, TaskRecord, project_id).filter(TaskRecord.id == task_id).first()
     if not rec:
         raise HTTPException(status_code=404, detail="Task không tồn tại")
 
@@ -153,11 +155,11 @@ def update_task(task_id: str, req: TaskUpdateRequest, db: Session = Depends(get_
 
 
 @router.delete("/{task_id}")
-def delete_task(task_id: str, db: Session = Depends(get_db)) -> Dict[str, Any]:
+def delete_task(task_id: str, project_id: str = Depends(project_scope), db: Session = Depends(get_db)) -> Dict[str, Any]:
     """
     Deletes a task by id.
     """
-    rec = db.query(TaskRecord).filter(TaskRecord.id == task_id).first()
+    rec = owned_query(db, TaskRecord, project_id).filter(TaskRecord.id == task_id).first()
     if not rec:
         raise HTTPException(status_code=404, detail="Task không tồn tại")
 

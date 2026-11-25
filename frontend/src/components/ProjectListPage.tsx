@@ -80,14 +80,14 @@ export function ProjectListPage() {
     return filtered;
   }, [projects, projectSearch, projectSort]);
 
-  const handleConfirmRename = () => {
+  const handleConfirmRename = async () => {
     if (!renameTarget) return;
     const parsed = projectTitleSchema.safeParse(renameValue);
     if (!parsed.success) {
       setRenameError(parsed.error.issues[0]?.message ?? 'Tiêu đề không hợp lệ.');
       return;
     }
-    renameProject(renameTarget.id, parsed.data);
+    if (!await renameProject(renameTarget.id, parsed.data)) return;
     setRenameTarget(null);
     setRenameError(null);
   };

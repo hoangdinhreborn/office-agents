@@ -37,6 +37,7 @@ export function NewProjectDialog({ open, onClose }: NewProjectDialogProps) {
   const createProject = useWorkspaceStore((s) => s.createProject);
 
   const [title, setTitle] = useState('');
+  const [isSaving, setIsSaving] = useState(false);
   const [titleError, setTitleError] = useState<string | null>(null);
   const [icon, setIcon] = useState<ProjectIconCode>('briefcase');
   const [pickIconOpen, setPickIconOpen] = useState(false);
@@ -146,7 +147,8 @@ export function NewProjectDialog({ open, onClose }: NewProjectDialogProps) {
     }
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
+    if (isSaving) return;
     const parsed = projectTitleSchema.safeParse(title);
     if (!parsed.success) {
       setTitleError(parsed.error.issues[0]?.message ?? 'Vui lòng nhập tên dự án.');
@@ -159,20 +161,24 @@ export function NewProjectDialog({ open, onClose }: NewProjectDialogProps) {
         setLabelError('Vui lòng nhập tên nhãn email mới.');
         return;
       }
-      createProject({
+      setIsSaving(true);
+      const created = await createProject({
         title: parsed.data,
         icon,
         members,
         mailLabelName: candidateLabel,
         createNewLabel: true,
       });
+      setIsSaving(false);
+      if (!created) { setLabelError('Chưa lưu được dự án. Kiểm tra thông báo lỗi và nhãn Gmail.'); return; }
     } else {
       const chosen = mailboxLabels.find((l) => l.id === selectedLabelId);
       if (!chosen) {
         setLabelError('Vui lòng chọn một nhãn email hoặc chuyển sang tạo nhãn mới.');
         return;
       }
-      createProject({
+      setIsSaving(true);
+      const created = await createProject({
         title: parsed.data,
         icon,
         members,
@@ -180,6 +186,8 @@ export function NewProjectDialog({ open, onClose }: NewProjectDialogProps) {
         mailLabelName: chosen.name,
         createNewLabel: false,
       });
+      setIsSaving(false);
+      if (!created) { setLabelError('Chưa lưu được dự án. Nhãn Gmail có thể đã thuộc dự án khác.'); return; }
     }
 
     resetAndClose();
@@ -345,7 +353,7 @@ export function NewProjectDialog({ open, onClose }: NewProjectDialogProps) {
                         const owner = labelOwnerMap.get(lbl.id);
                         return (
                           <option key={lbl.id} value={lbl.id}>
-                            {lbl.name} ({lbl.messageCount} mail)
+                            {lbl.name}
                             {owner ? ` — Đang gắn: ${owner}` : ''}
                           </option>
                         );
@@ -515,7 +523,8 @@ export function NewProjectDialog({ open, onClose }: NewProjectDialogProps) {
             </button>
             <button
               type="button"
-              onClick={handleSubmit}
+              disabled={isSaving}
+              onClick={() => void handleSubmit()}
               className="px-5 py-2 rounded-[8px] bg-[#FCA311] text-[#14213D] text-[14px] leading-[20px] font-semibold hover:bg-[var(--accent-hover)] transition-colors whitespace-nowrap cursor-pointer"
             >
               Tạo

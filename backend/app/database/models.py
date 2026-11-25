@@ -1,14 +1,65 @@
 from datetime import datetime
 import json
 import uuid
-from sqlalchemy import Boolean, Column, DateTime, Integer, String, Text
+from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Integer, String, Text, UniqueConstraint
 from app.database.database import Base
+
+
+class LLMProviderRecord(Base):
+    __tablename__ = "llm_providers"
+
+    id = Column(String(128), primary_key=True)
+    config_json = Column(Text, nullable=False)
+
+
+class LLMProviderSecretRecord(Base):
+    __tablename__ = "llm_provider_secrets"
+
+    provider_id = Column(String(128), ForeignKey("llm_providers.id", ondelete="CASCADE"), primary_key=True)
+    encrypted_key = Column(Text, nullable=False)
+
+
+class LLMRuntimeRecord(Base):
+    __tablename__ = "llm_runtime"
+
+    id = Column(Integer, primary_key=True, default=1)
+    selected_model_id = Column(String(128), nullable=True)
+    fallback_model_id = Column(String(128), nullable=True)
+
+
+class ProjectRecord(Base):
+    __tablename__ = "projects"
+
+    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    title = Column(String(80), nullable=False)
+    icon = Column(String(32), nullable=False, default="briefcase")
+    mail_label_id = Column(String(255), unique=True, nullable=True)
+    mail_label_name = Column(String(255), unique=True, nullable=True)
+    mail_label_key = Column(String(255), unique=True, nullable=True)
+    mail_sync_interval_minutes = Column(Integer, nullable=False, default=60)
+    default_reminder_minutes = Column(Integer, nullable=False, default=30)
+    collect_rl_feedback = Column(Boolean, nullable=False, default=True)
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    deleted_at = Column(DateTime, nullable=True)
+
+
+class ProjectMemberRecord(Base):
+    __tablename__ = "project_members"
+    __table_args__ = (UniqueConstraint("project_id", "email"),)
+
+    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    project_id = Column(String(36), ForeignKey("projects.id"), nullable=False, index=True)
+    email = Column(String(255), nullable=False)
+    role = Column(String(20), nullable=False)
 
 
 class DocumentRecord(Base):
     __tablename__ = "documents"
 
     id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    project_id = Column(String(36), ForeignKey("projects.id"), index=True)
+    file_path = Column(String(500), nullable=True)
+    file_size = Column(Integer, nullable=True)
     filename = Column(String(255), nullable=False)
     total_pages = Column(Integer, default=1)
     executive_summary = Column(Text, nullable=True)
@@ -30,6 +81,7 @@ class CalendarRecord(Base):
     __tablename__ = "calendar_events"
 
     id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    project_id = Column(String(36), ForeignKey("projects.id"), index=True)
     title = Column(String(255), nullable=False)
     start_time = Column(DateTime, nullable=False)
     end_time = Column(DateTime, nullable=False)
@@ -47,6 +99,7 @@ class SolutionRecord(Base):
     __tablename__ = "solutions"
 
     id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    project_id = Column(String(36), ForeignKey("projects.id"), index=True)
     problem = Column(Text, nullable=False)
     root_cause = Column(Text, nullable=True)
     full_markdown = Column(Text, nullable=True)
@@ -57,6 +110,7 @@ class EmailProcessedRecord(Base):
     __tablename__ = "emails_processed"
 
     id = Column(String(128), primary_key=True)  # Provider message id (e.g. gmail-xxx, graph-xxx, desktop-xxx)
+    project_id = Column(String(36), ForeignKey("projects.id"), index=True)
     source = Column(String(50), nullable=False)  # "gmail", "graph", "desktop", "imap", "eml"
     subject = Column(String(500), default="(Không có tiêu đề)")
     sender_email = Column(String(255), default="")
@@ -120,6 +174,7 @@ class RLFeedbackRecord(Base):
     __tablename__ = "rl_feedbacks"
 
     id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    project_id = Column(String(36), ForeignKey("projects.id"), index=True)
     agent_type = Column(String(50), nullable=False)  # "summary", "solution", "calendar", "router"
     prompt = Column(Text, nullable=False)  # User input / problem prompt
     response = Column(Text, nullable=False)  # Model raw response (candidate / rejected)
@@ -134,6 +189,7 @@ class TaskRecord(Base):
     __tablename__ = "tasks"
 
     id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    project_id = Column(String(36), ForeignKey("projects.id"), index=True)
     title = Column(String(500), nullable=False)
     due_date = Column(DateTime, nullable=True)
     priority = Column(String(20), default="medium")  # "low", "medium", "high"
@@ -147,6 +203,7 @@ class ChatSessionRecord(Base):
     __tablename__ = "chat_sessions"
 
     id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    project_id = Column(String(36), ForeignKey("projects.id"), index=True)
     title = Column(String(255), default="Cuộc trò chuyện mới")
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)

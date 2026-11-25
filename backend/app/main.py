@@ -2,7 +2,9 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse, FileResponse
+from fastapi.responses import HTMLResponse, FileResponse, JSONResponse
+from fastapi.exceptions import RequestValidationError
+from fastapi.exception_handlers import request_validation_exception_handler
 from fastapi.staticfiles import StaticFiles
 
 from app.api.chat import router as chat_router
@@ -12,6 +14,10 @@ from app.api.calendar import router as calendar_router
 from app.api.solutions import router as solutions_router
 from app.api.feedback import router as feedback_router
 from app.api.tasks import router as tasks_router
+from app.api.projects import router as projects_router
+from app.api.llm import router as llm_router
+from app.services.llm_settings import LLMError
+from app.config import settings
 from app.database.database import init_db
 from app.services.email_poller import email_poller
 
@@ -21,10 +27,8 @@ async def lifespan(app: FastAPI):
     # Initialize SQLite tables on startup
     init_db()
     # Start background email poller (outbound polling daemon)
-    try:
+    if settings.email_poller_enabled:
         email_poller.start()
-    except Exception as exc:
-        pass
     yield
     # Shutdown poller on application termination
     try:
@@ -57,6 +61,29 @@ app.include_router(calendar_router)
 app.include_router(solutions_router)
 app.include_router(feedback_router)
 app.include_router(tasks_router)
+app.include_router(projects_router)
+app.include_router(llm_router)
+
+
+@app.exception_handler(LLMError)
+async def llm_error_handler(request, exc: LLMError):
+    return JSONResponse(status_code=exc.status_code, content={"detail": str(exc)})
+
+
+@app.exception_handler(RequestValidationError)
+async def validation_error_handler(request, exc: RequestValidationError):
+    if not request.url.path.startswith("/api/llm/"):
+        return await request_validation_exception_handler(request, exc)
+    # Never echo submitted API keys or other request values in validation responses.
+    return JSONResponse(status_code=422, content={"detail": [
+        {"loc": error["loc"], "msg": error["msg"], "type": error["type"]}
+        for error in exc.errors()
+    ]})
+
+
+@app.get("/api/account", tags=["Local account"])
+def local_account():
+    return {"name": settings.owner_name, "email": settings.owner_email, "role": "Chủ máy", "avatarUrl": ""}
 
 # Mount static folder
 static_path = Path(__file__).parent / "static"

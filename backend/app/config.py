@@ -15,18 +15,27 @@ else:
     ROOT_DIR = Path(__file__).resolve().parent.parent
 ROOT_ENV_FILE = ROOT_DIR / ".env"
 
-if ROOT_ENV_FILE.is_file():
-    load_dotenv(dotenv_path=str(ROOT_ENV_FILE), override=True)
+if ROOT_ENV_FILE.is_file() and os.getenv("APP_ENV") != "test":
+    load_dotenv(dotenv_path=str(ROOT_ENV_FILE), override=False)
 
 
 class Settings(BaseSettings):
     app_name: str = "Local Multi-Agent AI Assistant"
     app_env: str = "development"
+    owner_name: str = "Chủ máy"
+    owner_email: str = ""
+    email_poller_enabled: bool = True
 
     # LLM Settings (01 Local RL / Reasoning Model)
     ollama_base_url: str = "http://localhost:11434"
     ollama_model: str = "deepseek-r1:8b"
     ollama_timeout: float = 180.0
+    # Optional endpoint used to initialize provider settings. No network probe at startup.
+    llm_base_url: str = ""
+    llm_model: str = ""
+    llm_protocol: str = "openai-chat"
+    llm_api_key_env: str = ""
+    llm_timeout: float | None = None
 
     # Email & Sender Filtering (Gmail API & EML)
     allowed_senders: Union[str, List[str]] = []
@@ -82,7 +91,7 @@ class Settings(BaseSettings):
 
     # Configure Pydantic to read exclusively from the root .env
     model_config = SettingsConfigDict(
-        env_file=str(ROOT_ENV_FILE) if ROOT_ENV_FILE.is_file() else ".env",
+        env_file=None if os.getenv("APP_ENV") == "test" else (str(ROOT_ENV_FILE) if ROOT_ENV_FILE.is_file() else ".env"),
         env_file_encoding="utf-8",
         extra="ignore",
     )

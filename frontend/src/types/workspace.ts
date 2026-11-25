@@ -188,7 +188,7 @@ export type ResourceItem = PdfResource | MailResource;
 export interface MailboxLabel {
   id: string;
   name: string;
-  messageCount: number;
+  messageCount?: number;
   source: 'gmail' | 'created';
 }
 
@@ -196,7 +196,6 @@ export interface ProjectConfig {
   imapFolder: string;
   mailLabelId?: string;
   mailLabelName?: string;
-  defaultSummaryStyle: SummaryStyle;
   mailSyncIntervalMinutes: number;
   defaultReminderMinutes: number;
   collectRlFeedback: boolean;
@@ -220,6 +219,9 @@ export interface ChatMessage {
   reasoningDurationSec?: number;
   timestamp: string;
   referencedSourceNames?: string[];
+  modelId?: string;
+  providerId?: string;
+  fallbackUsed?: boolean;
   feedback?: 'up' | 'down' | null;
 }
 
@@ -262,6 +264,9 @@ export interface ModelProviderConfig {
   baseUrl: string;
   protocol: ApiProtocol;
   authEnvVar?: string;
+  authMode?: 'api-key' | 'environment' | 'none';
+  apiKey?: string;
+  hasApiKey?: boolean;
   isLocalRuntime?: boolean;
   connectionStatus?: 'connected' | 'unconfigured' | 'error';
   models: ModelItem[];

@@ -21,7 +21,6 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { resolvePdfCitationTarget } from '../data/mockPdfDocuments';
-import { CURRENT_USER, LOCAL_MODELS } from '../data/seedData';
 import { buildMailOverviewReport, MAIL_OVERVIEW_REPORT_ID } from '../lib/mailOverviewReport';
 import { useWorkspaceStore } from '../store/useWorkspaceStore';
 import type { ModelItem, Project } from '../types/workspace';
@@ -40,6 +39,7 @@ interface ChatPanelProps {
 }
 
 export function ChatPanel({ project, onMeasureMinWidth }: ChatPanelProps) {
+  const currentUser = useWorkspaceStore((s) => s.currentUser);
   const activeSessionId = useWorkspaceStore((s) => s.activeSessionId);
   const chatSessions = useWorkspaceStore((s) => s.chatSessions);
   const selectedModelId = useWorkspaceStore((s) => s.selectedModelId);
@@ -57,6 +57,12 @@ export function ChatPanel({ project, onMeasureMinWidth }: ChatPanelProps) {
   const [inputValue, setInputValue] = useState('');
   const [undoStack, setUndoStack] = useState<string[]>(['']);
   const [historyIndex, setHistoryIndex] = useState(0);
+
+  useEffect(() => {
+    setInputValue('');
+    setUndoStack(['']);
+    setHistoryIndex(0);
+  }, [project.id]);
 
   const [modelPopoverOpen, setModelPopoverOpen] = useState(false);
   const [modelSettingsOpen, setModelSettingsOpen] = useState(false);
@@ -81,11 +87,11 @@ export function ChatPanel({ project, onMeasureMinWidth }: ChatPanelProps) {
 
   const allAvailableModels = useMemo(() => {
     const list = modelProviders.flatMap((p) => p.models);
-    return list.length > 0 ? list : LOCAL_MODELS;
+    return list;
   }, [modelProviders]);
 
   const activeModel = useMemo(
-    () => allAvailableModels.find((m) => m.id === selectedModelId) ?? allAvailableModels[0],
+    () => allAvailableModels.find((m) => m.id === selectedModelId) ?? null,
     [allAvailableModels, selectedModelId]
   );
 
@@ -143,7 +149,7 @@ export function ChatPanel({ project, onMeasureMinWidth }: ChatPanelProps) {
     measure();
     window.addEventListener('resize', measure);
     return () => window.removeEventListener('resize', measure);
-  }, [onMeasureMinWidth, activeModel.name]);
+  }, [onMeasureMinWidth, activeModel?.name]);
 
   useEffect(() => {
     if (!citationsDialog) return;
@@ -165,13 +171,16 @@ export function ChatPanel({ project, onMeasureMinWidth }: ChatPanelProps) {
     });
   };
 
-  const handleSend = () => {
-    const trimmed = inputValue.trim();
-    if (!trimmed || isAgentResponding) return;
-    setInputValue('');
-    setUndoStack(['']);
-    setHistoryIndex(0);
-    sendChatMessage(trimmed);
+  const handleSend = async () => {
+    const original = inputValue;
+    const trimmed = original.trim();
+    if (!trimmed || isAgentResponding || !activeModel) return;
+    const sent = await sendChatMessage(trimmed);
+    if (sent && useWorkspaceStore.getState().activeProjectId === project.id && textareaRef.current?.value === original) {
+      setInputValue('');
+      setUndoStack(['']);
+      setHistoryIndex(0);
+    }
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -241,7 +250,7 @@ export function ChatPanel({ project, onMeasureMinWidth }: ChatPanelProps) {
         <div className="flex-1 min-h-0 scroll-area flex flex-col items-center px-4 py-4">
           <div className="my-auto w-full max-w-[640px] flex flex-col items-center text-center">
             <h2 className="text-[25px] leading-[32px] font-bold tracking-[-0.01em] text-[var(--text)] max-w-[540px] text-balance">
-              Chào {CURRENT_USER.name}, hôm nay nhiều việc lắm đấy
+              Chào {currentUser.name}, hôm nay nhiều việc lắm đấy
             </h2>
 
             {/* Mini markdown overview report for up to 3 most recent emails */}
@@ -320,6 +329,7 @@ export function ChatPanel({ project, onMeasureMinWidth }: ChatPanelProps) {
 
               return (
                 <div key={msg.id} className="flex flex-col items-start gap-2 max-w-[92%]">
+                  {msg.modelId && <span className="text-[12px] text-[var(--text-muted)]">{msg.modelId}{msg.fallbackUsed ? ' · Model dự phòng VRAM' : ''}</span>}
                   {/* Agent response header: ghost reasoning block */}
                   {msg.reasoning && (
                     <div className="w-full max-w-[660px] flex flex-col items-start gap-1">
@@ -461,7 +471,7 @@ export function ChatPanel({ project, onMeasureMinWidth }: ChatPanelProps) {
             {isAgentResponding && (
               <div className="flex items-center gap-2.5 text-[14px] leading-[20px] text-[var(--text-muted)] py-2">
                 <IconLoader2 size={18} stroke={2} className="animate-spin text-[var(--accent-ink)]" />
-                <span>Đang phân tích ngữ cảnh trên {activeModel.name}...</span>
+                <span>Đang phân tích ngữ cảnh trên {activeModel?.name || 'Chọn mô hình'}...</span>
               </div>
             )}
             <div ref={messagesEndRef} />
@@ -493,7 +503,7 @@ export function ChatPanel({ project, onMeasureMinWidth }: ChatPanelProps) {
               onClick={() => setModelPopoverOpen((v) => !v)}
               className="h-9 px-3 rounded-[8px] bg-transparent border border-[var(--border)] text-[13px] leading-[18px] font-semibold text-[var(--text-body)] hover:border-[var(--border-hover)] hover:text-[var(--text)] transition-colors whitespace-nowrap cursor-pointer"
             >
-              {activeModel.name}
+              {activeModel?.name || 'Chọn mô hình'}
             </button>
 
             {modelPopoverOpen && (
@@ -579,7 +589,7 @@ export function ChatPanel({ project, onMeasureMinWidth }: ChatPanelProps) {
             type="button"
             aria-label="Gửi tin nhắn"
             title="Gửi tin nhắn (Enter)"
-            disabled={!inputValue.trim() || isAgentResponding}
+            disabled={!inputValue.trim() || isAgentResponding || !activeModel}
             onClick={handleSend}
             className={`w-9 h-9 rounded-[8px] flex items-center justify-center shrink-0 transition-colors cursor-pointer ${
               inputValue.trim() && !isAgentResponding

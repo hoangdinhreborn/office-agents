@@ -405,7 +405,7 @@ class EmailAgent:
 
         # Collect emails if not provided
         items = list(email_items or [])
-        if not items:
+        if email_items is None:
             from app.database.database import SessionLocal
             from app.database.models import EmailProcessedRecord
 

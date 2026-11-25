@@ -1,3 +1,6 @@
+from datetime import datetime
+import uuid
+from app.services.projects import owned_query, project_scope
 import math
 from pathlib import Path
 from typing import Any, Dict, List, Literal, Optional, Union
@@ -9,7 +12,7 @@ from sqlalchemy.orm import Session
 from app.agents.email_agent import email_agent, EmailAnalysisResult
 from app.config import settings
 from app.database.database import get_db
-from app.database.models import EmailFolderRuleRecord, EmailProcessedRecord
+from app.database.models import EmailFolderRuleRecord, EmailProcessedRecord, ProjectRecord
 from app.integrations.gmail import gmail_service
 from app.schemas.email import EmailMessage
 from app.services.email_poller import email_poller
@@ -236,7 +239,7 @@ def fetch_raw_emails(req: FetchEmailsRequest) -> Dict[str, Any]:
 
 
 @router.post("/analyze")
-def analyze_emails_endpoint(req: FetchEmailsRequest, db: Session = Depends(get_db)) -> Dict[str, Any]:
+def analyze_emails_endpoint(req: FetchEmailsRequest, project_id: str = Depends(project_scope), db: Session = Depends(get_db)) -> Dict[str, Any]:
     """
     Fetches, performs full AI analysis on Gmail emails, AND PERSISTS every email to SQLite database.
     Supports page_token for 'Quét Tiếp' incremental scanning.
@@ -256,9 +259,10 @@ def analyze_emails_endpoint(req: FetchEmailsRequest, db: Session = Depends(get_d
         try:
             s_name = item.sender.split("<")[0].strip(" \"'") if "<" in item.sender else item.sender
             s_email = item.sender.split("<")[-1].replace(">", "").strip() if "<" in item.sender else item.sender
-            rec = db.query(EmailProcessedRecord).filter(EmailProcessedRecord.id == item.id).first()
+            rec = owned_query(db, EmailProcessedRecord, project_id).filter(EmailProcessedRecord.id == item.id).first()
             if not rec:
                 rec = EmailProcessedRecord(
+                    project_id=project_id,
                     id=item.id,
                     source="gmail",
                     subject=item.subject,
@@ -329,12 +333,12 @@ def list_processed_emails(
     page_size: int = Query(10, ge=1, le=100, description="Số lượng email mỗi trang"),
     folder: Optional[str] = Query(None, description="Lọc theo thư mục"),
     category: Optional[str] = Query(None, description="Lọc theo phân loại"),
-    db: Session = Depends(get_db),
+    project_id: str = Depends(project_scope), db: Session = Depends(get_db),
 ) -> Any:
     """
     Returns list of processed emails with optional pagination and folder filtering.
     """
-    query = db.query(EmailProcessedRecord).order_by(EmailProcessedRecord.processed_at.desc())
+    query = owned_query(db, EmailProcessedRecord, project_id).order_by(EmailProcessedRecord.processed_at.desc())
     if folder and folder.strip().upper() != "ALL":
         query = query.filter(EmailProcessedRecord.folder == folder.strip())
     if category:
@@ -474,29 +478,29 @@ def delete_folder_rule(rule_id: str, db: Session = Depends(get_db)) -> Dict[str,
 
 # ------------------------------------------------------------------ Daily Digest Endpoints
 @router.post("/daily-digest")
-def get_daily_digest(req: DailyDigestRequest, db: Session = Depends(get_db)) -> Dict[str, Any]:
+def get_daily_digest(req: DailyDigestRequest, project_id: str = Depends(project_scope), db: Session = Depends(get_db)) -> Dict[str, Any]:
     """
     Returns aggregated summary and categorization of daily emails.
     """
-    digest = email_agent.generate_daily_digest(target_date=req.date)
+    digest = email_agent.generate_daily_digest(target_date=req.date, email_items=_digest_items(db, project_id, req.date))
     return digest
 
 
 @router.post("/daily-digest/export-pdf")
-def export_daily_digest_pdf(req: DailyDigestExportRequest, db: Session = Depends(get_db)) -> Dict[str, Any]:
+def export_daily_digest_pdf(req: DailyDigestExportRequest, project_id: str = Depends(project_scope), db: Session = Depends(get_db)) -> Dict[str, Any]:
     """
     Generates an executive PDF report summarizing daily emails and saves it to data/documents.
     """
-    digest = email_agent.generate_daily_digest(target_date=req.date)
+    digest = email_agent.generate_daily_digest(target_date=req.date, email_items=_digest_items(db, project_id, req.date))
     pdf_path = pdf_generator.generate_digest_pdf(
         target_date=digest["target_date"],
         digest_data=digest,
-        output_filename=req.filename,
+        output_filename=f"{project_id}-{uuid.uuid4()}.pdf",
     )
     return {
         "success": True,
         "filename": pdf_path.name,
-        "download_url": f"/api/emails/daily-digest/download/{pdf_path.name}",
+        "download_url": f"/api/emails/daily-digest/download/{pdf_path.name}?project_id={project_id}",
         "target_date": digest["target_date"],
         "total_emails": digest["total_emails"],
         "urgent_count": digest["urgent_count"],
@@ -505,11 +509,14 @@ def export_daily_digest_pdf(req: DailyDigestExportRequest, db: Session = Depends
 
 
 @router.get("/daily-digest/download/{filename}")
-def download_daily_digest_pdf(filename: str):
+def download_daily_digest_pdf(filename: str, project_id: str = Depends(project_scope), db: Session = Depends(get_db)):
     """
     Downloads the generated Daily Email Digest PDF report.
     """
     safe_name = Path(filename).name
+    other_project = any(safe_name.startswith(f"{pid}-") and pid != project_id for (pid,) in db.query(ProjectRecord.id).all())
+    if safe_name != filename or other_project or (project_id != "legacy" and not safe_name.startswith(f"{project_id}-")):
+        raise HTTPException(404, "Không tìm thấy báo cáo trong dự án.")
     pdf_file = Path("data/documents") / safe_name
     if not pdf_file.exists():
         raise HTTPException(status_code=404, detail=f"Không tìm thấy file báo cáo PDF: {safe_name}")
@@ -518,3 +525,39 @@ def download_daily_digest_pdf(filename: str):
         media_type="application/pdf",
         filename=safe_name,
     )
+
+
+def _digest_items(db: Session, project_id: str, target_date: Optional[str]) -> List[Dict[str, Any]]:
+    records = owned_query(db, EmailProcessedRecord, project_id).all()
+    date = target_date or datetime.now().strftime("%Y-%m-%d")
+    return [{"id": r.id, "subject": r.subject, "sender_email": r.sender_email,
+             "received_time": r.received_time, "folder": r.folder, "urgency": r.urgency,
+             "category": r.category, "body": r.body or r.body_snippet or "",
+             "has_attachments": r.has_attachments, "pdf_filename": r.pdf_filename, "pdf_summary": r.pdf_summary}
+            for r in records if date in (r.received_time or "") or date == r.processed_at.strftime("%Y-%m-%d")]
+
+
+class MailboxLabelCreate(BaseModel):
+    name: str = Field(min_length=1, max_length=225)
+
+
+@router.get("/mailbox-labels")
+def list_mailbox_labels():
+    _require_gmail_auth()
+    try:
+        labels = gmail_service._execute_with_retry(lambda service: service.users().labels().list(userId="me").execute()).get("labels", [])
+    except Exception as exc:
+        raise HTTPException(502, "Không tải được nhãn Gmail.") from exc
+    return [{"id": label["id"], "name": label["name"], "source": "gmail"} for label in labels]
+
+
+@router.post("/mailbox-labels", status_code=201)
+def create_mailbox_label(req: MailboxLabelCreate):
+    _require_gmail_auth()
+    name = req.name.strip()
+    if not name:
+        raise HTTPException(422, "Tên nhãn không được trống.")
+    label_id = gmail_service.get_or_create_label(name)
+    if not label_id:
+        raise HTTPException(502, "Chưa tạo được nhãn Gmail; dự án chưa được lưu.")
+    return {"id": label_id, "name": name, "source": "gmail"}

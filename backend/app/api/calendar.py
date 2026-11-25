@@ -7,6 +7,7 @@ from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
+from app.services.projects import owned_query, project_scope, require_project
 from app.agents.calendar_agent import calendar_agent
 from app.config import settings
 from app.database.database import get_db
@@ -29,7 +30,7 @@ class ManualEventCreateRequest(BaseModel):
     title: str
     start_time: str
     end_time: Optional[str] = None
-    reminder_minutes: Optional[int] = 30
+    reminder_minutes: Optional[int] = None
     location: Optional[str] = ""
     description: Optional[str] = ""
     attendees: Optional[List[str]] = []
@@ -39,14 +40,14 @@ class ManualEventCreateRequest(BaseModel):
 @router.post("/extract-and-schedule")
 def extract_and_schedule_endpoint(
     req: ExtractScheduleRequest,
-    db: Session = Depends(get_db),
+    project_id: str = Depends(project_scope), db: Session = Depends(get_db),
 ) -> Dict[str, Any]:
     """
     Extracts events from text using DeepSeek-R1 reasoning and automatically schedules
     them to Calendar with advance reminders.
     Supports dry-run and sends ambiguous events to needs_confirmation.
     """
-    rem = req.reminder_minutes if req.reminder_minutes is not None else settings.calendar_default_reminder_minutes
+    rem = req.reminder_minutes if req.reminder_minutes is not None else require_project(db, project_id).default_reminder_minutes
     result = calendar_agent.extract_and_schedule(
         input_text=req.text,
         source_type=req.source_type,
@@ -61,7 +62,11 @@ def extract_and_schedule_endpoint(
         for se in result.scheduled_events:
             evt_obj = calendar_service.get_event(se.event_id)
             if evt_obj:
+                existing = db.get(CalendarRecord, evt_obj.id)
+                if existing is not None and existing.project_id != project_id and not (project_id == "legacy" and existing.project_id is None):
+                    raise HTTPException(409, "Sự kiện đã thuộc dự án khác; không thể chuyển quyền sở hữu.")
                 rec = CalendarRecord(
+                    project_id=project_id,
                     id=evt_obj.id,
                     title=evt_obj.title,
                     start_time=evt_obj.start_time,
@@ -91,7 +96,7 @@ def extract_and_schedule_endpoint(
 @router.post("/events")
 def create_manual_event_endpoint(
     req: ManualEventCreateRequest,
-    db: Session = Depends(get_db),
+    project_id: str = Depends(project_scope), db: Session = Depends(get_db),
 ) -> Dict[str, Any]:
     """
     Manually creates a calendar event with reminder and synchronizes to Google Calendar.
@@ -103,13 +108,19 @@ def create_manual_event_endpoint(
         description=req.description or "",
         location=req.location or "",
         attendees=req.attendees,
-        reminder_minutes=req.reminder_minutes,
+        reminder_minutes=req.reminder_minutes if req.reminder_minutes is not None else require_project(db, project_id).default_reminder_minutes,
         source_type=req.source_type or "prompt",
     )
 
     evt = res["event"]
+    existing = db.get(CalendarRecord, evt["id"])
+    if existing is not None:
+        if existing.project_id != project_id and not (project_id == "legacy" and existing.project_id is None):
+            raise HTTPException(409, "Sự kiện đã thuộc dự án khác; không thể chuyển quyền sở hữu.")
+        return res
     cloud_synced = res.get("cloud_synced", False)
     rec = CalendarRecord(
+        project_id=project_id,
         id=evt["id"],
         title=evt["title"],
         start_time=calendar_service.get_event(evt["id"]).start_time,
@@ -139,14 +150,14 @@ def google_calendar_status() -> Dict[str, Any]:
 @router.get("/upcoming")
 def list_upcoming_events(
     hours: int = Query(48, ge=1, le=168, description="Số giờ tới để quét sự kiện sắp diễn ra"),
-    db: Session = Depends(get_db),
+    project_id: str = Depends(project_scope), db: Session = Depends(get_db),
 ) -> Dict[str, Any]:
     """
     Returns upcoming events within the next specified hours for notifications and alert badges.
     """
     now = datetime.utcnow()
     limit_time = now + timedelta(hours=hours)
-    records = db.query(CalendarRecord).filter(
+    records = owned_query(db, CalendarRecord, project_id).filter(
         CalendarRecord.start_time >= now - timedelta(minutes=30),
         CalendarRecord.start_time <= limit_time,
     ).order_by(CalendarRecord.start_time.asc()).limit(20).all()
@@ -177,12 +188,12 @@ def list_upcoming_events(
 def list_events_endpoint(
     page: Optional[int] = Query(None, ge=1, description="Số trang (bắt đầu từ 1, để trống = trả về toàn bộ list)"),
     page_size: int = Query(10, ge=1, le=100, description="Số lượng sự kiện mỗi trang"),
-    db: Session = Depends(get_db),
+    project_id: str = Depends(project_scope), db: Session = Depends(get_db),
 ) -> Any:
     """
     Lists scheduled calendar events with optional pagination.
     """
-    query = db.query(CalendarRecord).order_by(CalendarRecord.start_time.asc())
+    query = owned_query(db, CalendarRecord, project_id).order_by(CalendarRecord.start_time.asc())
     total = query.count()
 
     if page is not None:
@@ -229,15 +240,18 @@ def list_events_endpoint(
             }
             for r in records
         ]
-    return calendar_service.list_events()
+    return []
 
 
 @router.get("/download-ics/{event_id}")
-def download_ics_endpoint(event_id: str):
+def download_ics_endpoint(event_id: str, project_id: str = Depends(project_scope), db: Session = Depends(get_db)):
     """
     Downloads RFC-5545 .ics file for calendar import.
     """
-    ics_file = Path("data/calendar") / f"{event_id}.ics"
+    record = owned_query(db, CalendarRecord, project_id).filter_by(id=event_id).first()
+    if not record:
+        raise HTTPException(404, "Không tìm thấy lịch trong dự án.")
+    ics_file = Path(record.ics_path) if record.ics_path else Path("data/calendar") / f"{event_id}.ics"
     if not ics_file.exists():
         raise HTTPException(status_code=404, detail="File .ics không tồn tại")
     return FileResponse(

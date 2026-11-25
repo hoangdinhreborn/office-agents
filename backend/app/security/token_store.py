@@ -62,6 +62,12 @@ class SecureTokenStore:
 
         return self._cipher
 
+    def encrypt_secret(self, value: str) -> str:
+        return self._get_cipher().encrypt(value.encode("utf-8")).decode("ascii")
+
+    def decrypt_secret(self, value: str) -> str:
+        return self._get_cipher().decrypt(value.encode("ascii")).decode("utf-8")
+
     def save_token(self, name: str, token_data: Union[Dict[str, Any], str]) -> Path:
         """
         Encrypts and writes token data to a file.

@@ -1,13 +1,19 @@
 import { useEffect } from 'react';
+import { Button } from './components/ui/button';
 import { ProjectDetailPage } from './components/ProjectDetailPage';
 import { ProjectListPage } from './components/ProjectListPage';
 import { Sidebar } from './components/Sidebar';
 import { ToastContainer } from './components/ToastContainer';
 import { TooltipProvider } from './components/ui/tooltip';
-import { CURRENT_USER } from './data/seedData';
 import { useWorkspaceStore } from './store/useWorkspaceStore';
 
 export default function App() {
+  const currentUser = useWorkspaceStore((s) => s.currentUser);
+  const initializeWorkspace = useWorkspaceStore((s) => s.initializeWorkspace);
+  const isLoadingProjects = useWorkspaceStore((s) => s.isLoadingProjects);
+  const workspaceLoaded = useWorkspaceStore((s) => s.workspaceLoaded);
+  const workspaceError = useWorkspaceStore((s) => s.workspaceError);
+  useEffect(() => { void initializeWorkspace(); }, [initializeWorkspace]);
   const activeView = useWorkspaceStore((s) => s.activeView);
   const isLoggedOut = useWorkspaceStore((s) => s.isLoggedOut);
   const signBackIn = useWorkspaceStore((s) => s.signBackIn);
@@ -51,7 +57,7 @@ export default function App() {
                 Đã đăng xuất
               </h1>
               <p className="text-[16px] leading-[24px] text-[var(--text-body)]">
-                Phiên làm việc cục bộ của {CURRENT_USER.name} đã kết thúc. Dữ liệu dự án vẫn được giữ
+                Phiên làm việc cục bộ của {currentUser.name} đã kết thúc. Dữ liệu dự án vẫn được giữ
                 nguyên.
               </p>
             </div>
@@ -67,6 +73,15 @@ export default function App() {
         </div>
       </TooltipProvider>
     );
+  }
+
+  if (!workspaceLoaded || workspaceError) {
+    return <div className="min-h-screen flex flex-col items-center justify-center gap-4 bg-[var(--bg)] text-[var(--text)] p-6">
+      <p role="status">{workspaceError || 'Đang tải dự án từ backend…'}</p>
+      {workspaceError && <Button disabled={isLoadingProjects} onClick={() => void initializeWorkspace()}>
+        {isLoadingProjects ? 'Đang kết nối…' : 'Thử lại'}
+      </Button>}
+    </div>;
   }
 
   return (

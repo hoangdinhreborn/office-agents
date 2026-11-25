@@ -4,6 +4,8 @@ from pydantic import BaseModel, Field
 
 class ChatRequest(BaseModel):
     message: str = Field(..., description="Yêu cầu từ người dùng")
+    resource_ids: List[str] = Field(default_factory=list)
+    model_id: Optional[str] = Field(None, min_length=1, max_length=128)
     session_id: Optional[str] = Field(None, description="Định danh phiên hội thoại (UUID)")
     folder_name: Optional[str] = Field(None, description="Nhãn Gmail chỉ định (vd: INBOX)")
     allowed_senders: Optional[List[str]] = Field(None, description="Danh sách email người gửi cho phép")
@@ -16,6 +18,9 @@ class ChatResponse(BaseModel):
     agents_invoked: List[str]
     thinking_process: str = ""
     session_id: Optional[str] = None
+    provider_id: Optional[str] = None
+    model_id: Optional[str] = None
+    fallback_used: bool = False
     summary_data: Optional[Dict[str, Any]] = None
     solution_data: Optional[Dict[str, Any]] = None
     email_data: Optional[List[Dict[str, Any]]] = None
@@ -24,6 +29,7 @@ class ChatResponse(BaseModel):
 
 class ChatSessionSummary(BaseModel):
     id: str
+    project_id: Optional[str] = None
     title: str
     created_at: str
     updated_at: str
@@ -36,6 +42,9 @@ class ChatMessageItem(BaseModel):
     role: str
     content: str
     thinking_process: str = ""
+    provider_id: Optional[str] = None
+    model_id: Optional[str] = None
+    fallback_used: bool = False
     agents_invoked: List[str] = []
     created_at: str
 

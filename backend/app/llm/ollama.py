@@ -1,32 +1,26 @@
-from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeoutError
+"""Compatibility entry points used by existing agents; dispatches through saved providers."""
 import json
-import logging
 import re
 import time
 from typing import Any, Dict, List, Optional, Tuple
-import httpx
-from ollama import Client
 
 from app.config import settings
-
-logger = logging.getLogger(__name__)
-
-client = Client(host=settings.ollama_base_url)
+from app.database.database import SessionLocal
+from app.llm.adapters import generate
+from app.services.llm_settings import LLMError, providers, resolve_model, runtime
 
 
 class LLMResponse:
-    def __init__(self, raw: str, thought: str = "", content: str = "", elapsed_seconds: float = 0.0):
+    def __init__(self, raw: str, thought: str = "", content: str = "", elapsed_seconds: float = 0.0,
+                 provider_id: str = "", model_id: str = "", fallback_used: bool = False, usage: Optional[dict] = None):
         self.raw = raw
         self.thought = thought
         self.content = content
         self.elapsed_seconds = elapsed_seconds
-
-    def __repr__(self) -> str:
-        return (
-            f"LLMResponse(thought_len={len(self.thought)}, "
-            f"content_len={len(self.content)}, "
-            f"elapsed={self.elapsed_seconds:.2f}s)"
-        )
+        self.provider_id = provider_id
+        self.model_id = model_id
+        self.fallback_used = fallback_used
+        self.usage = usage or {}
 
 
 def parse_thinking_and_content(raw_text: str) -> Tuple[str, str]:
@@ -83,195 +77,58 @@ def extract_json_from_response(text: str) -> Optional[Any]:
         return None
 
 
-def get_available_local_model() -> Optional[str]:
-    """Finds an installed and verified local model in Ollama."""
-    try:
-        tags = client.list()
-        model_list = tags.get("models", [])
-        names = []
-        for m in model_list:
-            n = m.get("model") or m.get("name")
-            if n:
-                names.append(n)
-        for preferred in ["deepseek-r1:8b", "deepseek-r1:1.5b", "qwen2.5:7b", "llama3:8b"]:
-            for name in names:
-                if preferred in name:
-                    return name
-        if names:
-            return names[0]
-    except Exception:
-        pass
-    return "deepseek-r1:8b"
-
-
 def chat_with_llm(
-    message: str,
-    system_prompt: Optional[str] = None,
-    history: Optional[List[Dict[str, str]]] = None,
-    model: Optional[str] = None,
-    temperature: float = 0.6,
+    message: str, system_prompt: Optional[str] = None, history: Optional[List[Dict[str, str]]] = None,
+    model: Optional[str] = None, temperature: float = 0.6, timeout_secs: Optional[float] = None,
 ) -> LLMResponse:
-    """
-    Sends message to the local LLM (DeepSeek-R1) and returns structured response
-    including the reasoning process (<think> trace).
-    """
-    chosen_model = model or settings.ollama_model
-    messages: List[Dict[str, str]] = []
-
+    messages = []
     if system_prompt:
         messages.append({"role": "system", "content": system_prompt})
-
-    if history:
-        messages.extend(history)
-
+    for item in history or []:
+        if item.get("role") in ("user", "assistant") and isinstance(item.get("content"), str):
+            messages.append({"role": item["role"], "content": item["content"]})
     messages.append({"role": "user", "content": message})
-
-    start_time = time.perf_counter()
+    with SessionLocal() as db:
+        provider, chosen = resolve_model(db, model)
+        fallback_id = runtime(db).fallback_model_id
+    start = time.perf_counter()
+    used_fallback = False
+    timeout = timeout_secs if timeout_secs is not None else (settings.llm_timeout or settings.ollama_timeout)
     try:
-        response = client.chat(
-            model=chosen_model,
-            messages=messages,
-            options={"temperature": temperature, "num_ctx": 8192},
-        )
-        elapsed = time.perf_counter() - start_time
-        raw_text = response["message"]["content"]
-        thought, content = parse_thinking_and_content(raw_text)
-        return LLMResponse(raw=raw_text, thought=thought, content=content, elapsed_seconds=elapsed)
-    except Exception as exc:
-        exc_str = str(exc)
-        # Check if error is due to unauthorized/cloud/missing model and attempt fallback
-        is_model_unavailable = any(
-            err in exc_str.lower()
-            for err in ["unauthorized", "not found", "status code: 401", "status code: 403", "status code: 404", "does not exist", "pull model"]
-        )
-        if is_model_unavailable:
-            fallback = get_available_local_model()
-            if fallback and fallback != chosen_model:
-                logger.warning(
-                    f"Mô hình '{chosen_model}' không thể truy cập ({exc_str}). "
-                    f"Tự động chuyển đổi sang mô hình Local có sẵn: '{fallback}'"
-                )
-                try:
-                    fb_resp = client.chat(
-                        model=fallback,
-                        messages=messages,
-                        options={"temperature": temperature, "num_ctx": 8192},
-                    )
-                    elapsed = time.perf_counter() - start_time
-                    raw_text = fb_resp["message"]["content"]
-                    thought, content = parse_thinking_and_content(raw_text)
-                    return LLMResponse(raw=raw_text, thought=thought, content=content, elapsed_seconds=elapsed)
-                except Exception as fb_exc:
-                    logger.error(f"Fallback sang '{fallback}' thất bại: {fb_exc}")
-
-        elapsed = time.perf_counter() - start_time
-        err_msg = f"Lỗi kết nối Ollama model '{chosen_model}': {str(exc)}"
-        return LLMResponse(raw=err_msg, thought="", content=err_msg, elapsed_seconds=elapsed)
+        result = generate(provider, chosen, messages, temperature, timeout)
+    except LLMError as exc:
+        if not exc.out_of_memory or not provider.is_local_runtime or not fallback_id or fallback_id == chosen.id:
+            raise
+        with SessionLocal() as db:
+            fallback_provider, fallback_model = resolve_model(db, fallback_id)
+        if not fallback_provider.is_local_runtime:
+            raise LLMError("Fallback VRAM cần trỏ đến máy chủ cục bộ.", 422) from exc
+        provider, chosen = fallback_provider, fallback_model
+        result = generate(provider, chosen, messages, temperature, timeout)
+        used_fallback = True
+    thought, content = parse_thinking_and_content(result.content)
+    if not content.strip():
+        raise LLMError("Model chỉ trả phần suy luận, chưa có câu trả lời. Kiểm tra model và giới hạn output.")
+    return LLMResponse(raw=result.content, thought=result.thinking or thought, content=content,
+                       elapsed_seconds=time.perf_counter() - start, provider_id=provider.id,
+                       model_id=result.model, fallback_used=used_fallback, usage=result.usage)
 
 
 def chat_with_llm_safe(
-    message: str,
-    system_prompt: Optional[str] = None,
-    history: Optional[List[Dict[str, str]]] = None,
-    model: Optional[str] = None,
-    temperature: float = 0.6,
-    timeout_secs: Optional[float] = None,
-    max_retries: int = 2,
+    message: str, system_prompt: Optional[str] = None, history: Optional[List[Dict[str, str]]] = None,
+    model: Optional[str] = None, temperature: float = 0.6, timeout_secs: Optional[float] = None,
+    max_retries: int = 0,
 ) -> LLMResponse:
-    """
-    Robust LLM caller:
-    - Enforces timeout via ThreadPoolExecutor.
-    - Retries on transient failure or timeout up to max_retries.
-    - Logs running duration per attempt.
-    - Returns structured LLMResponse with graceful fallback on complete failure.
-    """
-    timeout = timeout_secs or settings.ollama_timeout
-    chosen_model = model or settings.ollama_model
-
-    last_error = ""
-    for attempt in range(max_retries + 1):
-        t0 = time.perf_counter()
-        logger.info(f"Gửi yêu cầu tới LLM '{chosen_model}' (lần thử {attempt + 1}/{max_retries + 1}, timeout={timeout}s)...")
-
-        with ThreadPoolExecutor(max_workers=1) as executor:
-            future = executor.submit(
-                chat_with_llm,
-                message=message,
-                system_prompt=system_prompt,
-                history=history,
-                model=chosen_model,
-                temperature=temperature,
-            )
-            try:
-                result = future.result(timeout=timeout)
-                elapsed = time.perf_counter() - t0
-                result.elapsed_seconds = elapsed
-
-                # If the returned content is an error message from chat_with_llm
-                if result.content.startswith("Lỗi kết nối Ollama"):
-                    last_error = result.content
-                    logger.warning(f"Lỗi phản hồi từ LLM (lần thử {attempt + 1}): {last_error}")
-                    if attempt < max_retries:
-                        time.sleep(0.5 * (attempt + 1))
-                        continue
-                    return result
-
-                logger.info(f"LLM hoàn thành trong {elapsed:.2f}s (lần thử {attempt + 1}).")
-                return result
-
-            except FuturesTimeoutError:
-                elapsed = time.perf_counter() - t0
-                last_error = f"LLM quá thời gian chờ sau {timeout:.1f}s (bận hoặc xử lý quá lâu)."
-                logger.warning(f"LLM timeout sau {elapsed:.2f}s (lần thử {attempt + 1}).")
-                if attempt < max_retries:
-                    time.sleep(0.5 * (attempt + 1))
-                    continue
-
-            except Exception as exc:
-                elapsed = time.perf_counter() - t0
-                last_error = f"Lỗi ngoại lệ khi gọi LLM: {str(exc)}"
-                logger.warning(f"Lỗi LLM sau {elapsed:.2f}s (lần thử {attempt + 1}): {exc}")
-                if attempt < max_retries:
-                    time.sleep(0.5 * (attempt + 1))
-                    continue
-
-    fallback_msg = f"[Lỗi hệ thống: {last_error}]"
-    return LLMResponse(
-        raw=fallback_msg,
-        thought="",
-        content=fallback_msg,
-        elapsed_seconds=timeout,
-    )
+    # HTTP timeouts are handled by the adapter. Do not resend a billed inference automatically.
+    if max_retries != 0:
+        raise LLMError("Tự thử lại inference chưa được bật; yêu cầu max_retries=0 để tránh gọi tính phí lặp.", 422)
+    return chat_with_llm(message, system_prompt, history, model, temperature, timeout_secs)
 
 
 def check_ollama_status() -> Dict[str, Any]:
-    """
-    Verifies if Ollama is running and lists locally installed models.
-    """
-    try:
-        with httpx.Client(timeout=3.0) as http_client:
-            res = http_client.get(f"{settings.ollama_base_url}/api/tags")
-            if res.status_code == 200:
-                data = res.json()
-                models = [m.get("name") for m in data.get("models", [])]
-                is_target_installed = any(
-                    settings.ollama_model in m or m.startswith(settings.ollama_model.split(":")[0])
-                    for m in models
-                )
-                return {
-                    "connected": True,
-                    "target_model": settings.ollama_model,
-                    "target_model_installed": is_target_installed,
-                    "available_models": models,
-                }
-            return {
-                "connected": False,
-                "error": f"Ollama HTTP {res.status_code}",
-                "available_models": [],
-            }
-    except Exception as exc:
-        return {
-            "connected": False,
-            "error": str(exc),
-            "available_models": [],
-        }
+    # Compatibility field in /api/chat/status; no endpoint probing on status requests.
+    with SessionLocal() as db:
+        state = runtime(db)
+        saved = providers(db)
+        return {"connected": None, "status": "not_checked", "selected_model_id": state.selected_model_id,
+                "available_models": [m.model_id for p in saved for m in p.models]}

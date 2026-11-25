@@ -40,7 +40,7 @@ export function ProjectDetailPage() {
   const fetchMailboxLabels = useWorkspaceStore((s) => s.fetchMailboxLabels);
   const createMailboxLabel = useWorkspaceStore((s) => s.createMailboxLabel);
 
-  const project = projects.find((p) => p.id === activeProjectId) ?? projects[0] ?? null;
+  const project = projects.find((p) => p.id === activeProjectId) ?? null;
 
   const mailOverviewReport = useMemo(
     () => (project ? buildMailOverviewReport(project) : null),
@@ -151,6 +151,8 @@ export function ProjectDetailPage() {
   }, [isPdfWide, minRightWidth, clampRightWidth]);
 
   const [configOpen, setConfigOpen] = useState(false);
+  const [savingConfig, setSavingConfig] = useState(false);
+  const [savingLabel, setSavingLabel] = useState(false);
   const [configDraft, setConfigDraft] = useState<ProjectConfig | null>(null);
   const [membersDraft, setMembersDraft] = useState<ProjectMember[]>([]);
   const [newMemberEmail, setNewMemberEmail] = useState('');
@@ -167,7 +169,7 @@ export function ProjectDetailPage() {
       setCreatingConfigLabel(false);
       setNewConfigLabelName('');
     }
-  }, [configOpen, project]);
+  }, [configOpen, project?.id]);
 
   useEffect(() => {
     if (!configOpen) return;
@@ -214,6 +216,17 @@ export function ProjectDetailPage() {
     ]);
     setNewMemberEmail('');
     setMemberError(null);
+  };
+
+  const handleCreateConfigLabel = async () => {
+    if (savingLabel || !newConfigLabelName.trim()) return;
+    setSavingLabel(true);
+    const created = await createMailboxLabel(newConfigLabelName);
+    setSavingLabel(false);
+    if (!created) return;
+    setConfigDraft((prev) => prev ? { ...prev, mailLabelId: created.id, mailLabelName: created.name, imapFolder: created.name } : prev);
+    setCreatingConfigLabel(false);
+    setNewConfigLabelName('');
   };
 
   return (
@@ -427,45 +440,15 @@ export function ProjectDetailPage() {
                       value={newConfigLabelName}
                       onChange={(e) => setNewConfigLabelName(e.target.value)}
                       onKeyDown={(e) => {
-                        if (e.key === 'Enter' && newConfigLabelName.trim()) {
-                          e.preventDefault();
-                          const created = createMailboxLabel(newConfigLabelName);
-                          setConfigDraft((prev) =>
-                            prev
-                              ? {
-                                  ...prev,
-                                  mailLabelId: created.id,
-                                  mailLabelName: created.name,
-                                  imapFolder: `INBOX/${created.name}`,
-                                }
-                              : prev
-                          );
-                          setCreatingConfigLabel(false);
-                          setNewConfigLabelName('');
-                        }
+                        if (e.key === 'Enter') { e.preventDefault(); void handleCreateConfigLabel(); }
                       }}
                       placeholder="Nhập tên nhãn email mới (vd: HopDong-Q1)"
                       className="flex-1 min-w-0 h-10 px-3 rounded-[8px] bg-transparent border border-[var(--border)] text-[13px] font-mono text-[var(--text)] placeholder:text-[var(--text-muted)] hover:border-[var(--border-hover)]"
                     />
                     <button
                       type="button"
-                      disabled={!newConfigLabelName.trim()}
-                      onClick={() => {
-                        if (!newConfigLabelName.trim()) return;
-                        const created = createMailboxLabel(newConfigLabelName);
-                        setConfigDraft((prev) =>
-                          prev
-                            ? {
-                                ...prev,
-                                mailLabelId: created.id,
-                                mailLabelName: created.name,
-                                imapFolder: `INBOX/${created.name}`,
-                              }
-                            : prev
-                        );
-                        setCreatingConfigLabel(false);
-                        setNewConfigLabelName('');
-                      }}
+                      disabled={savingLabel || !newConfigLabelName.trim()}
+                      onClick={() => void handleCreateConfigLabel()}
                       className="h-10 px-3.5 rounded-[8px] bg-[var(--primary-btn-bg)] text-[var(--primary-btn-fg)] text-[13px] font-semibold hover:bg-[var(--primary-btn-hover)] disabled:opacity-50 shrink-0 cursor-pointer"
                     >
                       Tạo
@@ -498,7 +481,7 @@ export function ProjectDetailPage() {
                         );
                         return (
                           <option key={lbl.id} value={lbl.id}>
-                            {lbl.name} ({lbl.messageCount} mail)
+                            {lbl.name}
                             {otherOwner ? ` — Đang gắn: ${otherOwner.title}` : ''}
                           </option>
                         );
@@ -700,9 +683,13 @@ export function ProjectDetailPage() {
               </button>
               <button
                 type="button"
-                onClick={() => {
-                  updateProjectConfig(project.id, configDraft, membersDraft);
-                  setConfigOpen(false);
+                disabled={savingConfig || savingLabel}
+                onClick={async () => {
+                  if (savingConfig) return;
+                  setSavingConfig(true);
+                  const saved = await updateProjectConfig(project.id, configDraft, membersDraft);
+                  setSavingConfig(false);
+                  if (saved) setConfigOpen(false);
                 }}
                 className="px-5 py-2 rounded-[8px] bg-[#FCA311] text-[#14213D] text-[14px] font-semibold hover:bg-[var(--accent-hover)] cursor-pointer"
               >

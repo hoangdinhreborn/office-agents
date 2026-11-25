@@ -10,6 +10,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
+from app.services.projects import owned_query, project_scope, require_project
 from app.config import settings
 from app.database.database import get_db
 from app.database.models import RLFeedbackRecord
@@ -44,12 +45,15 @@ class FeedbackResponse(BaseModel):
 
 
 @router.post("", response_model=Dict[str, Any])
-def submit_feedback(req: FeedbackCreateRequest, db: Session = Depends(get_db)) -> Dict[str, Any]:
+def submit_feedback(req: FeedbackCreateRequest, project_id: str = Depends(project_scope), db: Session = Depends(get_db)) -> Dict[str, Any]:
     """
     Submits human feedback on an agent's response for Reinforcement Learning (RL) / DPO fine-tuning.
     """
+    if not require_project(db, project_id).collect_rl_feedback:
+        raise HTTPException(403, "Dự án đã tắt thu thập phản hồi RL.")
     meta_json = json.dumps(req.metadata or {}, ensure_ascii=False)
     rec = RLFeedbackRecord(
+        project_id=project_id,
         id=str(uuid.uuid4()),
         agent_type=req.agent_type.lower().strip(),
         prompt=req.prompt.strip(),
@@ -80,12 +84,12 @@ def list_feedback(
     page: Optional[int] = Query(None, ge=1, description="Số trang (bắt đầu từ 1; để trống = trả về list)"),
     page_size: int = Query(10, ge=1, le=100, description="Số lượng mục mỗi trang khi phân trang"),
     limit: int = Query(50, ge=1, le=500),
-    db: Session = Depends(get_db),
+    project_id: str = Depends(project_scope), db: Session = Depends(get_db),
 ) -> Any:
     """
     Retrieves human feedback entries with optional filtering and pagination.
     """
-    query = db.query(RLFeedbackRecord)
+    query = owned_query(db, RLFeedbackRecord, project_id)
     if agent_type:
         query = query.filter(RLFeedbackRecord.agent_type == agent_type.lower().strip())
     if min_rating is not None:
@@ -144,24 +148,24 @@ def list_feedback(
 
 
 @router.get("/stats")
-def get_feedback_stats(db: Session = Depends(get_db)) -> Dict[str, Any]:
+def get_feedback_stats(project_id: str = Depends(project_scope), db: Session = Depends(get_db)) -> Dict[str, Any]:
     """
     Calculates statistics of collected human feedback for RL training monitoring.
     """
-    total = db.query(func.count(RLFeedbackRecord.id)).scalar() or 0
-    with_corrections = db.query(func.count(RLFeedbackRecord.id)).filter(
+    total = owned_query(db, RLFeedbackRecord, project_id).with_entities(func.count(RLFeedbackRecord.id)).scalar() or 0
+    with_corrections = owned_query(db, RLFeedbackRecord, project_id).with_entities(func.count(RLFeedbackRecord.id)).filter(
         RLFeedbackRecord.corrected_response.isnot(None),
         RLFeedbackRecord.corrected_response != "",
     ).scalar() or 0
 
     agent_counts = (
-        db.query(RLFeedbackRecord.agent_type, func.count(RLFeedbackRecord.id))
+        owned_query(db, RLFeedbackRecord, project_id).with_entities(RLFeedbackRecord.agent_type, func.count(RLFeedbackRecord.id))
         .group_by(RLFeedbackRecord.agent_type)
         .all()
     )
 
-    positive_ratings = db.query(func.count(RLFeedbackRecord.id)).filter(RLFeedbackRecord.rating > 0).scalar() or 0
-    negative_ratings = db.query(func.count(RLFeedbackRecord.id)).filter(RLFeedbackRecord.rating < 0).scalar() or 0
+    positive_ratings = owned_query(db, RLFeedbackRecord, project_id).with_entities(func.count(RLFeedbackRecord.id)).filter(RLFeedbackRecord.rating > 0).scalar() or 0
+    negative_ratings = owned_query(db, RLFeedbackRecord, project_id).with_entities(func.count(RLFeedbackRecord.id)).filter(RLFeedbackRecord.rating < 0).scalar() or 0
 
     return {
         "total_feedback": total,

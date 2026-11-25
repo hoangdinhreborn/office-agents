@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
+from app.services.projects import owned_query, project_scope
 from app.agents.solution_agent import solution_agent
 from app.database.database import get_db
 from app.database.models import SolutionRecord
@@ -20,7 +21,7 @@ class ProposeSolutionRequest(BaseModel):
 @router.post("/propose")
 def propose_solution_endpoint(
     req: ProposeSolutionRequest,
-    db: Session = Depends(get_db),
+    project_id: str = Depends(project_scope), db: Session = Depends(get_db),
 ) -> Dict[str, Any]:
     """
     Analyzes root causes and formulates 3-tier solutions using DeepSeek-R1 reasoning.
@@ -32,6 +33,7 @@ def propose_solution_endpoint(
     )
 
     rec = SolutionRecord(
+        project_id=project_id,
         problem=req.problem_description,
         root_cause=sol_res.root_cause_analysis,
         full_markdown=sol_res.full_markdown,
@@ -56,9 +58,9 @@ def propose_solution_endpoint(
 def list_solutions(
     page: Optional[int] = Query(None, ge=1, description="Số trang (bắt đầu từ 1, để trống = trả về list)"),
     page_size: int = Query(10, ge=1, le=100, description="Số lượng mục mỗi trang"),
-    db: Session = Depends(get_db),
+    project_id: str = Depends(project_scope), db: Session = Depends(get_db),
 ) -> Any:
-    query = db.query(SolutionRecord).order_by(SolutionRecord.created_at.desc())
+    query = owned_query(db, SolutionRecord, project_id).order_by(SolutionRecord.created_at.desc())
     total = query.count()
 
     if page is not None:

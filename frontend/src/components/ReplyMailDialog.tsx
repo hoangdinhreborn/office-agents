@@ -16,7 +16,6 @@ import {
   IconX,
 } from '@tabler/icons-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { CURRENT_USER } from '../data/seedData';
 import { useWorkspaceStore } from '../store/useWorkspaceStore';
 import type {
   PdfResource,
@@ -147,13 +146,14 @@ function buildAttachmentBlock(
 }
 
 function buildInitialDraftBody(params: {
+  currentUser: { name: string; role: string; email: string };
   resource: ResourceItem;
   solution: SolutionOption;
   isExternal: boolean;
   files: ReplyAttachmentFile[];
   links: ReplyAttachmentLink[];
 }): string {
-  const { resource, solution, isExternal, files, links } = params;
+  const { resource, solution, isExternal, files, links, currentUser } = params;
   const solutionPlain = stripMarkdown(solution.titleMarkdown);
   const greeting = isExternal ? 'Kính gửi Anh/Chị,' : 'Chào mọi người,';
   const intro =
@@ -162,8 +162,8 @@ function buildInitialDraftBody(params: {
       : `Gửi Anh/Chị đề xuất xử lý dựa trên tài liệu "${resource.fileName}":`;
 
   const closing = isExternal
-    ? `Rất mong nhận được phản hồi của Anh/Chị để hai bên sớm thống nhất triển khai.\n\nTrân trọng,\n${CURRENT_USER.name}\n${CURRENT_USER.role}`
-    : `Mọi người xem qua và phản hồi nếu cần điều chỉnh thêm nhé.\n\nCảm ơn mọi người,\n${CURRENT_USER.name}`;
+    ? `Rất mong nhận được phản hồi của Anh/Chị để hai bên sớm thống nhất triển khai.\n\nTrân trọng,\n${currentUser.name}\n${currentUser.role}`
+    : `Mọi người xem qua và phản hồi nếu cần điều chỉnh thêm nhé.\n\nCảm ơn mọi người,\n${currentUser.name}`;
 
   const attachmentBlock = buildAttachmentBlock(files, links);
 
@@ -228,6 +228,7 @@ export function ReplyMailDialog({
   solution,
   solutionIndex,
 }: ReplyMailDialogProps) {
+  const currentUser = useWorkspaceStore((s) => s.currentUser);
   const sendSolutionReplyMail = useWorkspaceStore((s) => s.sendSolutionReplyMail);
 
   const [toEmails, setToEmails] = useState<string[]>([]);
@@ -324,6 +325,7 @@ export function ReplyMailDialog({
 
     setBody(
       buildInitialDraftBody({
+        currentUser,
         resource,
         solution,
         isExternal: initialIsExternal,
@@ -511,6 +513,7 @@ export function ReplyMailDialog({
   const handleRegenerateBody = () => {
     setBody(
       buildInitialDraftBody({
+        currentUser,
         resource,
         solution,
         isExternal: hasExternalRecipient,

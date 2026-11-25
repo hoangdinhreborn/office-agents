@@ -158,13 +158,10 @@ def test_solution_agent_propose():
         assert res.execution_time_seconds > 0
 
 
-def test_llm_safe_timeout_and_retry_fallback():
-    # Verify chat_with_llm_safe returns graceful fallback without crashing
-    with patch("app.llm.ollama.client.chat", side_effect=Exception("Connection refused")):
-        res = chat_with_llm_safe(
-            message="Hello",
-            timeout_secs=0.5,
-            max_retries=1,
-        )
-        assert isinstance(res, LLMResponse)
-        assert "Lỗi" in res.content
+def test_llm_failure_is_explicit_without_model_switch():
+    from app.services.llm_settings import LLMError
+
+    with patch("app.llm.ollama.generate", side_effect=LLMError("Provider từ chối xác thực.")) as generate:
+        with pytest.raises(LLMError, match="từ chối xác thực"):
+            chat_with_llm_safe(message="Hello", timeout_secs=0.5)
+        generate.assert_called_once()

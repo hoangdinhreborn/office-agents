@@ -1,3 +1,4 @@
+import { discoverModels } from '../lib/llm-api';
 import {
   IconAdjustmentsHorizontal,
   IconCheck,
@@ -5,7 +6,6 @@ import {
   IconChevronRight,
   IconCpu,
   IconHistory,
-  IconInfoCircle,
   IconLoader2,
   IconPlugConnected,
   IconPlus,
@@ -15,7 +15,7 @@ import {
   IconX,
 } from '@tabler/icons-react';
 import { useEffect, useMemo, useState } from 'react';
-import { BUILTIN_PROVIDER_PRESETS, FETCHABLE_MODEL_CATALOGS } from '../data/seedData';
+import { BUILTIN_PROVIDER_PRESETS } from '../data/seedData';
 import { useWorkspaceStore } from '../store/useWorkspaceStore';
 import type {
   ApiProtocol,
@@ -59,8 +59,8 @@ function createBlankModel(providerName: string, providerId: string): ModelItem {
     name: '',
     provider: providerName,
     providerId,
-    contextWindow: '128K',
-    maxOutputTokens: '16K',
+    contextWindow: '',
+    maxOutputTokens: '',
     quantization: 'API',
     supportsText: true,
     supportsImage: false,
@@ -68,176 +68,15 @@ function createBlankModel(providerName: string, providerId: string): ModelItem {
   };
 }
 
-function buildPresetModels(
-  builtinKey: string,
-  displayName: string,
-  providerId: string
-): ModelItem[] {
-  const preset =
-    BUILTIN_PROVIDER_PRESETS.find((p) => p.key === builtinKey) ?? BUILTIN_PROVIDER_PRESETS[0];
-  return preset.defaultModels.map((m, idx) => ({
-    ...m,
-    id: `${providerId}-m-${idx}-${Date.now()}`,
-    provider: displayName,
-    providerId,
-  }));
+function buildPresetModels(_builtinKey: string, displayName: string, providerId: string): ModelItem[] {
+  return [createBlankModel(displayName, providerId)];
 }
 
-async function fetchModelsFromProvider(params: {
-  baseUrl: string;
-  protocol: ApiProtocol;
-  builtinKey?: string;
-}): Promise<{ models: FetchedModelCandidate[]; source: 'live' | 'catalog'; note: string }> {
-  const cleanedUrl = params.baseUrl.trim().replace(/\/+$/, '');
-
-  // Attempt live OpenAI-compatible (/models) or Ollama (/api/tags) discovery with short timeout
-  if (cleanedUrl && /^https?:\/\//i.test(cleanedUrl)) {
-    const controller = new AbortController();
-    const timer = window.setTimeout(() => controller.abort(), 2200);
-    try {
-      const isOllama =
-        params.protocol === 'ollama-native' ||
-        params.builtinKey === 'ollama' ||
-        cleanedUrl.includes(':11434');
-
-      const candidateUrls = isOllama
-        ? [
-            `${cleanedUrl.replace(/\/v1$/i, '')}/api/tags`,
-            `${cleanedUrl}/models`,
-          ]
-        : [`${cleanedUrl}/models`];
-
-      for (const endpoint of candidateUrls) {
-        try {
-          const res = await fetch(endpoint, {
-            method: 'GET',
-            headers: { Accept: 'application/json' },
-            signal: controller.signal,
-          });
-          if (!res.ok) continue;
-          const json: unknown = await res.json();
-
-          // OpenAI / vLLM / LM Studio format: { data: [{ id: string, ... }] }
-          if (
-            json &&
-            typeof json === 'object' &&
-            'data' in json &&
-            Array.isArray((json as { data: unknown[] }).data)
-          ) {
-            const rawList = (json as { data: Array<Record<string, unknown>> }).data;
-            const parsed: FetchedModelCandidate[] = rawList
-              .map((item) => {
-                const idStr = typeof item.id === 'string' ? item.id : '';
-                if (!idStr) return null;
-                const lower = idStr.toLowerCase();
-                return {
-                  modelId: idStr,
-                  name: idStr,
-                  contextWindow:
-                    typeof item.context_length === 'number'
-                      ? `${Math.round(item.context_length / 1024)}K`
-                      : '128K',
-                  maxOutputTokens: '16K',
-                  quantization: 'Live',
-                  supportsText: true,
-                  supportsImage: lower.includes('vl') || lower.includes('vision') || lower.includes('gemma'),
-                  supportsReasoning:
-                    lower.includes('r1') ||
-                    lower.includes('reason') ||
-                    lower.includes('qwen3') ||
-                    lower.includes('o3') ||
-                    lower.includes('o4'),
-                };
-              })
-              .filter((x): x is FetchedModelCandidate => x !== null);
-
-            if (parsed.length > 0) {
-              window.clearTimeout(timer);
-              return {
-                models: parsed,
-                source: 'live',
-                note: `Đã tải trực tiếp ${parsed.length} mô hình từ ${endpoint}`,
-              };
-            }
-          }
-
-          // Ollama /api/tags format: { models: [{ name: string, ... }] }
-          if (
-            json &&
-            typeof json === 'object' &&
-            'models' in json &&
-            Array.isArray((json as { models: unknown[] }).models)
-          ) {
-            const rawList = (json as { models: Array<Record<string, unknown>> }).models;
-            const parsed: FetchedModelCandidate[] = rawList
-              .map((item) => {
-                const nameStr = typeof item.name === 'string' ? item.name : '';
-                if (!nameStr) return null;
-                const lower = nameStr.toLowerCase();
-                return {
-                  modelId: nameStr,
-                  name: nameStr,
-                  contextWindow: '32K',
-                  maxOutputTokens: '8K',
-                  quantization: 'Ollama',
-                  supportsText: true,
-                  supportsImage: lower.includes('vl') || lower.includes('vision') || lower.includes('gemma3'),
-                  supportsReasoning: lower.includes('r1') || lower.includes('qwen3'),
-                };
-              })
-              .filter((x): x is FetchedModelCandidate => x !== null);
-
-            if (parsed.length > 0) {
-              window.clearTimeout(timer);
-              return {
-                models: parsed,
-                source: 'live',
-                note: `Đã tải trực tiếp ${parsed.length} mô hình từ ${endpoint}`,
-              };
-            }
-          }
-        } catch {
-          // try next endpoint or fall back cleanly
-        }
-      }
-    } finally {
-      window.clearTimeout(timer);
-    }
-  }
-
-  // Graceful fallback to provider-matched discovery catalog when local endpoint is unreachable in browser sandbox
-  await new Promise((resolve) => setTimeout(resolve, 420));
-  const key =
-    params.builtinKey && FETCHABLE_MODEL_CATALOGS[params.builtinKey]
-      ? params.builtinKey
-      : cleanedUrl.includes('11434')
-        ? 'ollama'
-        : cleanedUrl.includes('8000')
-          ? 'vllm'
-          : cleanedUrl.includes('1234')
-            ? 'lmstudio'
-            : 'default';
-
-  const catalog = FETCHABLE_MODEL_CATALOGS[key] ?? FETCHABLE_MODEL_CATALOGS.default;
-  const parsed: FetchedModelCandidate[] = catalog.map((item) => ({
-    modelId: item.modelId || item.name,
-    name: item.name,
-    contextWindow: item.contextWindow,
-    maxOutputTokens: item.maxOutputTokens || '16K',
-    quantization: item.quantization,
-    supportsText: item.supportsText ?? true,
-    supportsImage: item.supportsImage ?? false,
-    supportsReasoning: item.supportsReasoning ?? false,
-    isRlTuned: item.isRlTuned,
-  }));
-
-  return {
-    models: parsed,
-    source: 'catalog',
-    note: cleanedUrl
-      ? `Không thể gọi trực tiếp ${cleanedUrl} từ trình duyệt · hiển thị ${parsed.length} mô hình gợi ý từ danh mục.`
-      : `Hiển thị ${parsed.length} mô hình tiêu chuẩn từ danh mục nhà cung cấp.`,
-  };
+async function fetchModelsFromProvider(provider: ModelProviderConfig): Promise<{ models: FetchedModelCandidate[]; note: string }> {
+  const models = await discoverModels(provider);
+  return { models: models.map((m) => ({ modelId: m.model_id, name: m.name,
+    contextWindow: '', maxOutputTokens: '', quantization: '', supportsText: true, supportsImage: false, supportsReasoning: false })),
+    note: `Đã tải ${models.length} model từ provider. Capability và giới hạn token cần cấu hình theo model thực tế.` };
 }
 
 export function ModelSettingsDialog({ open, onClose }: ModelSettingsDialogProps) {
@@ -262,6 +101,7 @@ export function ModelSettingsDialog({ open, onClose }: ModelSettingsDialogProps)
   const [draft, setDraft] = useState<ModelProviderConfig | null>(null);
   const [customSettingsOpen, setCustomSettingsOpen] = useState(false);
   const [testingFormConnection, setTestingFormConnection] = useState(false);
+  const [savingProvider, setSavingProvider] = useState(false);
   const [formTestResult, setFormTestResult] = useState<{
     ok: boolean;
     message: string;
@@ -275,22 +115,14 @@ export function ModelSettingsDialog({ open, onClose }: ModelSettingsDialogProps)
   const [fetchSearch, setFetchSearch] = useState('');
   const [selectedFetchedIds, setSelectedFetchedIds] = useState<Set<string>>(new Set());
 
-  const localRuntimeProvider = useMemo(
-    () =>
-      modelProviders.find((p) => p.isLocalRuntime) ??
-      modelProviders.find((p) => p.builtinKey === 'ollama') ??
-      modelProviders[0] ??
-      null,
-    [modelProviders]
-  );
-
-  const apiProviders = useMemo(
-    () => modelProviders.filter((p) => p.id !== localRuntimeProvider?.id),
-    [modelProviders, localRuntimeProvider]
-  );
+  const localRuntimeProvider = useMemo(() => modelProviders.find((p) => p.isLocalRuntime) ?? null, [modelProviders]);
+  const apiProviders = modelProviders;
+  const fallbackModels = modelProviders.filter((p) => p.isLocalRuntime).flatMap((p) => p.models);
 
   useEffect(() => {
-    if (open) {
+    if (!open) {
+      setDraft(null);
+    } else {
       setViewMode('list');
       setFallbackDraft(localLlmConfig.quantizationFallback);
       setFormTestResult(null);
@@ -316,20 +148,11 @@ export function ModelSettingsDialog({ open, onClose }: ModelSettingsDialogProps)
   }, [open, fetchModalOpen, viewMode, onClose]);
 
   const openAddProviderForm = () => {
-    const defaultPreset = BUILTIN_PROVIDER_PRESETS[1]; // vLLM default for API tab
-    const newId = `prov-${Date.now()}`;
-    setDraft({
-      id: newId,
-      sourceType: 'builtin',
-      builtinKey: defaultPreset.key,
-      displayName: defaultPreset.defaultDisplayName,
-      baseUrl: defaultPreset.defaultBaseUrl,
-      protocol: defaultPreset.defaultProtocol,
-      authEnvVar: defaultPreset.defaultAuthEnvVar,
-      connectionStatus: 'unconfigured',
-      models: buildPresetModels(defaultPreset.key, defaultPreset.defaultDisplayName, newId),
-    });
-    setCustomSettingsOpen(false);
+    const id = `prov-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    setDraft({ id, sourceType: 'custom', displayName: 'Endpoint tùy chỉnh', baseUrl: '', protocol: 'openai-chat',
+      authMode: 'api-key', authEnvVar: '', apiKey: '', isLocalRuntime: false, connectionStatus: 'unconfigured',
+      models: [createBlankModel('Endpoint tùy chỉnh', id)] });
+    setCustomSettingsOpen(true);
     setFormTestResult(null);
     setViewMode('form');
   };
@@ -366,10 +189,13 @@ export function ModelSettingsDialog({ open, onClose }: ModelSettingsDialogProps)
         ...prev,
         sourceType: 'builtin',
         builtinKey: preset.key,
+        isLocalRuntime: ['ollama', 'vllm', 'lmstudio'].includes(preset.key),
         displayName: preset.defaultDisplayName,
         baseUrl: preset.defaultBaseUrl,
         protocol: preset.defaultProtocol,
         authEnvVar: preset.defaultAuthEnvVar,
+        authMode: ['ollama', 'vllm', 'lmstudio'].includes(preset.key) ? 'none' : 'api-key',
+        apiKey: '',
       };
     });
     setFormTestResult(null);
@@ -383,10 +209,13 @@ export function ModelSettingsDialog({ open, onClose }: ModelSettingsDialogProps)
       return {
         ...prev,
         builtinKey: preset.key,
+        isLocalRuntime: ['ollama', 'vllm', 'lmstudio'].includes(preset.key),
         displayName: preset.defaultDisplayName,
         baseUrl: preset.defaultBaseUrl,
         protocol: preset.defaultProtocol,
         authEnvVar: preset.defaultAuthEnvVar,
+        authMode: ['ollama', 'vllm', 'lmstudio'].includes(preset.key) ? 'none' : 'api-key',
+        apiKey: '',
         models: buildPresetModels(preset.key, preset.defaultDisplayName, prev.id),
       };
     });
@@ -398,7 +227,7 @@ export function ModelSettingsDialog({ open, onClose }: ModelSettingsDialogProps)
     const key = draft.builtinKey || 'ollama';
     const nextModels = buildPresetModels(key, draft.displayName || 'Custom API', draft.id);
     setDraft((prev) => (prev ? { ...prev, models: nextModels } : prev));
-    addToast('info', 'Đã khôi phục danh sách mô hình mặc định cho nhà cung cấp.');
+    addToast('info', 'Đã mở ô nhập model mới. Chưa lưu thay đổi.');
   };
 
   const handleTriggerFetchModels = async () => {
@@ -409,21 +238,20 @@ export function ModelSettingsDialog({ open, onClose }: ModelSettingsDialogProps)
     setIsFetchingModels(true);
     setFetchNote('');
 
-    const result = await fetchModelsFromProvider({
-      baseUrl: draft.baseUrl,
-      protocol: draft.protocol,
-      builtinKey: draft.sourceType === 'builtin' ? draft.builtinKey : undefined,
-    });
-
-    setFetchedModels(result.models);
-    setFetchNote(result.note);
-    setIsFetchingModels(false);
+    try {
+      const result = await fetchModelsFromProvider(draft);
+      setFetchedModels(result.models);
+      setFetchNote(result.note);
+    } catch (error) {
+      setFetchedModels([]);
+      setFetchNote(error instanceof Error ? error.message : 'Không tải được danh sách model. Bạn có thể nhập model ID thủ công.');
+    } finally { setIsFetchingModels(false); }
   };
 
   const existingModelIds = useMemo(() => {
     if (!draft) return new Set<string>();
     return new Set(
-      draft.models.map((m) => (m.modelId || m.name).trim().toLowerCase()).filter(Boolean)
+      draft.models.map((m) => (m.modelId || m.name).trim()).filter(Boolean)
     );
   }, [draft]);
 
@@ -441,7 +269,7 @@ export function ModelSettingsDialog({ open, onClose }: ModelSettingsDialogProps)
   const selectableFilteredModels = useMemo(
     () =>
       filteredFetchedModels.filter(
-        (m) => !existingModelIds.has(m.modelId.trim().toLowerCase())
+        (m) => !existingModelIds.has(m.modelId.trim())
       ),
     [filteredFetchedModels, existingModelIds]
   );
@@ -503,68 +331,37 @@ export function ModelSettingsDialog({ open, onClose }: ModelSettingsDialogProps)
   };
 
   const handleTestFormConnection = async () => {
-    if (!draft) return;
-    const url = draft.baseUrl.trim();
-    if (!url || !/^https?:\/\//i.test(url)) {
-      setFormTestResult({
-        ok: false,
-        message: 'URL cơ sở cần bắt đầu bằng http:// hoặc https://',
-      });
-      return;
-    }
+    if (!draft || testingFormConnection) return;
     setTestingFormConnection(true);
     setFormTestResult(null);
-
-    const res = await fetchModelsFromProvider({
-      baseUrl: url,
-      protocol: draft.protocol,
-      builtinKey: draft.sourceType === 'builtin' ? draft.builtinKey : undefined,
-    });
-
-    setTestingFormConnection(false);
-    if (res.source === 'live') {
-      setFormTestResult({
-        ok: true,
-        message: `Kết nối thành công · phát hiện ${res.models.length} mô hình.`,
-      });
-      setDraft((prev) => (prev ? { ...prev, connectionStatus: 'connected' } : prev));
-    } else {
-      setFormTestResult({
-        ok: true,
-        message: `Cấu hình endpoint hợp lệ (${protocolLabel(draft.protocol)}) · sẵn sàng tải ${res.models.length} mô hình.`,
-      });
-      setDraft((prev) => (prev ? { ...prev, connectionStatus: 'connected' } : prev));
-    }
+    try {
+      const result = await fetchModelsFromProvider(draft);
+      setFormTestResult({ ok: true, message: `Đã đọc danh sách ${result.models.length} model. Chưa gọi inference.` });
+      setDraft((prev) => prev ? { ...prev, connectionStatus: 'connected' } : prev);
+    } catch (error) {
+      setFormTestResult({ ok: false, message: error instanceof Error ? error.message : 'Không kết nối được provider.' });
+      setDraft((prev) => prev ? { ...prev, connectionStatus: 'error' } : prev);
+    } finally { setTestingFormConnection(false); }
   };
 
   const handleTestLocalRuntime = async (provider: ModelProviderConfig) => {
     setTestingLocalId(provider.id);
-    const res = await fetchModelsFromProvider({
-      baseUrl: provider.baseUrl,
-      protocol: provider.protocol,
-      builtinKey: provider.builtinKey,
-    });
-    setTestingLocalId(null);
-    setProviderConnectionStatus(provider.id, 'connected');
-    addToast(
-      'success',
-      res.source === 'live'
-        ? `Kết nối ${provider.displayName} thành công (${res.models.length} mô hình khả dụng).`
-        : `Đã xác minh cấu hình ${provider.displayName} tại ${provider.baseUrl}.`
-    );
+    try {
+      const result = await fetchModelsFromProvider(provider);
+      setProviderConnectionStatus(provider.id, 'connected');
+      addToast('info', `Đã đọc ${result.models.length} model từ ${provider.displayName}; chưa gọi inference.`);
+    } catch (error) {
+      setProviderConnectionStatus(provider.id, 'error');
+      addToast('warning', error instanceof Error ? error.message : 'Không kết nối được provider.');
+    } finally { setTestingLocalId(null); }
   };
 
-  const handleSaveProvider = () => {
-    if (!draft) return;
-    const displayName = draft.displayName.trim() || 'Nhà cung cấp tùy chỉnh';
-    const baseUrl = draft.baseUrl.trim() || 'http://127.0.0.1:11434/v1';
-
-    upsertModelProvider({
-      ...draft,
-      displayName,
-      baseUrl,
-    });
-
+  const handleSaveProvider = async () => {
+    if (!draft || savingProvider) return;
+    setSavingProvider(true);
+    const saved = await upsertModelProvider({ ...draft, displayName: draft.displayName.trim() || 'Endpoint tùy chỉnh', baseUrl: draft.baseUrl.trim() });
+    setSavingProvider(false);
+    if (!saved) return;
     setViewMode('list');
     setDraft(null);
   };
@@ -720,7 +517,7 @@ export function ModelSettingsDialog({ open, onClose }: ModelSettingsDialogProps)
                                 type="button"
                                 aria-label={`Xóa nhà cung cấp ${prov.displayName}`}
                                 title="Xóa nhà cung cấp"
-                                disabled={modelProviders.length <= 1}
+                                disabled={savingProvider}
                                 onClick={() => deleteModelProvider(prov.id)}
                                 className="w-9 h-9 rounded-[8px] bg-transparent text-[var(--text-muted)] hover:bg-[var(--destroy-bg)] hover:text-[var(--destroy-fg-hover)] disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center transition-colors cursor-pointer"
                               >
@@ -736,7 +533,7 @@ export function ModelSettingsDialog({ open, onClose }: ModelSettingsDialogProps)
                   /* Tab 2: Máy chủ cục bộ (Screenshot 7 layout) */
                   <>
                     <p className="text-[14px] leading-[20px] text-[var(--text-body)]">
-                      Cấu hình địa chỉ Ollama và mô hình cục bộ cho trợ lý xử lý tài liệu Sổ Việc.
+                      Cấu hình máy chủ cục bộ trong danh sách provider. Không tự tải hay khởi chạy model.
                     </p>
 
                     {localRuntimeProvider && (
@@ -764,8 +561,8 @@ export function ModelSettingsDialog({ open, onClose }: ModelSettingsDialogProps)
                               />
                               <span className="tabular-nums">
                                 {localRuntimeProvider.connectionStatus === 'connected'
-                                  ? `Đã cấu hình · ${localRuntimeProvider.models.length} mô hình`
-                                  : 'Chưa cấu hình'}
+                                  ? `Đã tải danh sách · ${localRuntimeProvider.models.length} mô hình`
+                                  : 'Đã lưu · chưa kiểm tra kết nối'}
                               </span>
                             </div>
                             <span className="text-[12px] leading-[16px] font-mono text-[var(--text-muted)] truncate">
@@ -812,6 +609,7 @@ export function ModelSettingsDialog({ open, onClose }: ModelSettingsDialogProps)
                         </div>
                         <button
                           type="button"
+                          disabled={!localLlmConfig.previousAdapterVersion}
                           onClick={rollbackRlAdapter}
                           className="h-8 px-3 rounded-[8px] bg-transparent border border-[var(--border)] text-[12px] font-semibold text-[var(--text-body)] hover:border-[var(--border-hover)] hover:text-[var(--text)] inline-flex items-center gap-1.5 whitespace-nowrap shrink-0 cursor-pointer"
                         >
@@ -830,19 +628,17 @@ export function ModelSettingsDialog({ open, onClose }: ModelSettingsDialogProps)
                           Mô hình dự phòng khi thiếu VRAM
                         </label>
                         <div className="flex items-center gap-2">
-                          <input
-                            id="local-fallback-input"
-                            type="text"
-                            value={fallbackDraft}
-                            onChange={(e) => setFallbackDraft(e.target.value)}
-                            className="flex-1 h-9 px-3 rounded-[8px] bg-transparent border border-[var(--border)] text-[13px] font-mono text-[var(--text)] hover:border-[var(--border-hover)]"
-                          />
+                          <select id="local-fallback-input" value={fallbackDraft} onChange={(e) => setFallbackDraft(e.target.value)}
+                            className="flex-1 min-w-0 h-9 px-3 rounded-[8px] bg-transparent border border-[var(--border)] text-[13px] text-[var(--text)]">
+                            <option value="">Không tự chuyển model</option>
+                            {fallbackModels.filter((m) => m.supportsText !== false).map((m) => <option key={m.id} value={m.id}>{m.provider} · {m.name}</option>)}
+                          </select>
                           <button
                             type="button"
                             onClick={() =>
                               updateLocalLlmConfig({
                                 quantizationFallback:
-                                  fallbackDraft.trim() || localLlmConfig.quantizationFallback,
+                                  fallbackDraft,
                               })
                             }
                             className="h-9 px-3.5 rounded-[8px] bg-[var(--surface-control)] text-[13px] font-semibold text-[var(--text)] hover:bg-[var(--surface-card-hover)] transition-colors shrink-0 cursor-pointer"
@@ -953,39 +749,6 @@ export function ModelSettingsDialog({ open, onClose }: ModelSettingsDialogProps)
                         </select>
                       </div>
 
-                      {/* Auth environment variable reference (no raw API key UI) */}
-                      <div className="flex flex-col gap-1.5">
-                        <label
-                          htmlFor="provider-env-var-input"
-                          className="text-[13px] leading-[18px] font-semibold text-[var(--text)] inline-flex items-center gap-1.5"
-                        >
-                          <span>Biến môi trường xác thực</span>
-                          <span
-                            title="Tên biến môi trường trên máy chủ nội bộ dùng khi máy chủ yêu cầu xác thực."
-                            className="text-[var(--text-muted)]"
-                          >
-                            <IconInfoCircle size={15} stroke={1.75} />
-                          </span>
-                        </label>
-                        <input
-                          id="provider-env-var-input"
-                          type="text"
-                          value={draft.authEnvVar ?? ''}
-                          onChange={(e) =>
-                            setDraft((prev) =>
-                              prev ? { ...prev, authEnvVar: e.target.value } : prev
-                            )
-                          }
-                          placeholder="Để trống nếu chạy nội bộ không cần xác thực (vd: OLLAMA_API_TOKEN)"
-                          className="w-full h-10 px-3 rounded-[10px] bg-transparent border border-[var(--border)] text-[13px] font-mono text-[var(--text)] placeholder:text-[var(--text-muted)] hover:border-[var(--border-hover)]"
-                        />
-                        {!draft.authEnvVar?.trim() && (
-                          <p className="text-[12px] leading-[18px] text-[var(--accent-ink)]">
-                            Đang bỏ trống biến môi trường xác thực. Hệ thống sẽ kết nối trực tiếp
-                            tới cổng nội bộ không cần mã xác thực.
-                          </p>
-                        )}
-                      </div>
                     </>
                   ) : (
                     <>
@@ -1011,33 +774,47 @@ export function ModelSettingsDialog({ open, onClose }: ModelSettingsDialogProps)
                         />
                       </div>
 
-                      <div className="flex flex-col gap-1.5">
-                        <label
-                          htmlFor="custom-env-var-input"
-                          className="text-[13px] leading-[18px] font-semibold text-[var(--text)] inline-flex items-center gap-1.5"
-                        >
-                          <span>Biến môi trường xác thực (tùy chọn)</span>
-                          <span
-                            title="Chỉ nhập tên biến môi trường đã cấu hình ở phía máy chủ."
-                            className="text-[var(--text-muted)]"
-                          >
-                            <IconInfoCircle size={15} stroke={1.75} />
-                          </span>
-                        </label>
-                        <input
-                          id="custom-env-var-input"
-                          type="text"
-                          value={draft.authEnvVar ?? ''}
-                          onChange={(e) =>
-                            setDraft((prev) =>
-                              prev ? { ...prev, authEnvVar: e.target.value } : prev
-                            )
-                          }
-                          placeholder="Ví dụ: CUSTOM_LLM_AUTH_TOKEN"
-                          className="w-full h-10 px-3 rounded-[10px] bg-transparent border border-[var(--border)] text-[13px] font-mono text-[var(--text)] placeholder:text-[var(--text-muted)] hover:border-[var(--border-hover)]"
-                        />
-                      </div>
                     </>
+                  )}
+
+                  <div className="flex flex-col gap-1.5">
+                    <label htmlFor="provider-auth-mode" className="text-[13px] font-semibold text-[var(--text)]">Xác thực provider</label>
+                    <select id="provider-auth-mode" value={draft.authMode ?? (draft.hasApiKey ? 'api-key' : draft.authEnvVar ? 'environment' : 'none')}
+                      onChange={(e) => {
+                        const authMode = e.target.value;
+                        if (authMode !== 'api-key' && authMode !== 'environment' && authMode !== 'none') return;
+                        setDraft((prev) => prev ? { ...prev, authMode, apiKey: '' } : prev);
+                      }}
+                      className="w-full h-10 px-3 rounded-[10px] bg-transparent border border-[var(--border)] text-[14px] text-[var(--text)]">
+                      <option value="api-key">API key riêng cho provider</option>
+                      <option value="environment">Biến môi trường trên backend</option>
+                      <option value="none">Không xác thực</option>
+                    </select>
+                  </div>
+                  {(draft.authMode ?? (draft.hasApiKey ? 'api-key' : draft.authEnvVar ? 'environment' : 'none')) === 'api-key' && (
+                    <div className="flex flex-col gap-1.5">
+                      <label htmlFor="provider-api-key" className="text-[13px] font-semibold text-[var(--text)]">API key</label>
+                      <input id="provider-api-key" type="password" autoComplete="new-password" spellCheck={false}
+                        value={draft.apiKey ?? ''} aria-describedby="provider-api-key-hint"
+                        placeholder={draft.hasApiKey ? 'Đã lưu key — nhập để thay thế' : 'Dán API key của provider này'}
+                        onChange={(e) => setDraft((prev) => prev ? { ...prev, apiKey: e.target.value } : prev)}
+                        className="w-full h-10 px-3 rounded-[10px] bg-transparent border border-[var(--border)] text-[13px] font-mono text-[var(--text)]" />
+                      <p id="provider-api-key-hint" className="text-[12px] leading-[18px] text-[var(--text-muted)]">
+                        Key được mã hóa ở backend, lưu riêng cho provider này. {draft.hasApiKey ? 'Để trống để giữ key đã lưu. Chọn Không xác thực rồi Lưu để xóa key.' : 'Không cần thêm biến môi trường. Bấm Lưu để giữ key sau khi đóng form.'}
+                      </p>
+                    </div>
+                  )}
+                  {(draft.authMode ?? (draft.hasApiKey ? 'api-key' : draft.authEnvVar ? 'environment' : 'none')) === 'environment' && (
+                    <div className="flex flex-col gap-1.5">
+                      <label htmlFor="provider-env-var-input" className="text-[13px] font-semibold text-[var(--text)]">Tên biến môi trường chứa API key</label>
+                      <input id="provider-env-var-input" type="text" value={draft.authEnvVar ?? ''} placeholder="Ví dụ: PROVIDER_A_API_KEY"
+                        aria-describedby="provider-env-var-hint"
+                        onChange={(e) => setDraft((prev) => prev ? { ...prev, authEnvVar: e.target.value } : prev)}
+                        className="w-full h-10 px-3 rounded-[10px] bg-transparent border border-[var(--border)] text-[13px] font-mono text-[var(--text)]" />
+                      <p id="provider-env-var-hint" className="text-[12px] leading-[18px] text-[var(--text-muted)]">
+                        Nhập tên biến trong .env ở thư mục gốc dự án, không nhập key trực tiếp. Khởi động lại backend sau khi sửa .env.
+                      </p>
+                    </div>
                   )}
 
                   <div className="h-px w-full bg-[var(--divider)]" />
@@ -1132,7 +909,7 @@ export function ModelSettingsDialog({ open, onClose }: ModelSettingsDialogProps)
                           </select>
                         </div>
 
-                        {/* Mô hình header + Khôi phục mặc định · Tải danh sách mô hình (Screenshot 3) */}
+                        {/* Mô hình header + Nhập lại model · Tải danh sách mô hình (Screenshot 3) */}
                         <div className="flex flex-col gap-3 pt-1">
                           <div className="flex items-end justify-between gap-3 flex-wrap">
                             <div className="flex flex-col">
@@ -1150,7 +927,7 @@ export function ModelSettingsDialog({ open, onClose }: ModelSettingsDialogProps)
                                 onClick={handleRestoreDefaultModels}
                                 className="text-[var(--text-body)] hover:text-[var(--text)] transition-colors cursor-pointer"
                               >
-                                Khôi phục mặc định
+                                Nhập lại model
                               </button>
                               <span className="text-[var(--text-muted)]">•</span>
                               <button
@@ -1338,6 +1115,12 @@ export function ModelSettingsDialog({ open, onClose }: ModelSettingsDialogProps)
                     )}
                   </div>
 
+                  <label className="flex items-center gap-2 text-[13px] text-[var(--text-body)]">
+                    <input type="checkbox" checked={draft.isLocalRuntime || false}
+                      onChange={(e) => setDraft((prev) => prev ? { ...prev, isLocalRuntime: e.target.checked } : prev)} />
+                    Máy chủ cục bộ (chỉ bật nếu model thực sự chạy local)
+                  </label>
+                  <p className="text-[12px] text-[var(--text-muted)]">Lưu cấu hình không gọi provider. Mỗi provider dùng cấu hình xác thực riêng.</p>
                   {formTestResult && (
                     <div
                       className={`rounded-[10px] px-3.5 py-2.5 text-[13px] leading-[18px] font-medium ${
@@ -1378,7 +1161,8 @@ export function ModelSettingsDialog({ open, onClose }: ModelSettingsDialogProps)
                     </button>
                     <button
                       type="button"
-                      onClick={handleSaveProvider}
+                      disabled={savingProvider}
+                      onClick={() => void handleSaveProvider()}
                       className="h-9 px-5 rounded-[8px] bg-[#FCA311] text-[#14213D] hover:bg-[var(--accent-hover)] text-[14px] font-semibold transition-colors cursor-pointer"
                     >
                       Lưu
@@ -1486,7 +1270,7 @@ export function ModelSettingsDialog({ open, onClose }: ModelSettingsDialogProps)
                 </div>
               ) : (
                 filteredFetchedModels.map((item) => {
-                  const alreadyAdded = existingModelIds.has(item.modelId.trim().toLowerCase());
+                  const alreadyAdded = existingModelIds.has(item.modelId.trim());
                   const isChecked = selectedFetchedIds.has(item.modelId);
                   return (
                     <label

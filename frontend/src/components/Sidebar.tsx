@@ -18,7 +18,6 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/src/components/ui/popover';
-import { CURRENT_USER } from '../data/seedData';
 import { useWorkspaceStore } from '../store/useWorkspaceStore';
 import type { ThemeMode } from '../types/workspace';
 import { formatShortDate } from '../utils/format';
@@ -34,6 +33,7 @@ const THEME_OPTIONS: Array<{
 ];
 
 export function Sidebar() {
+  const currentUser = useWorkspaceStore((s) => s.currentUser);
   const sidebarOpen = useWorkspaceStore((s) => s.sidebarOpen);
   const setSidebarOpen = useWorkspaceStore((s) => s.setSidebarOpen);
   const activeView = useWorkspaceStore((s) => s.activeView);
@@ -245,18 +245,18 @@ export function Sidebar() {
               {sidebarOpen ? (
                 <button
                   type="button"
-                  aria-label={`Tùy chọn tài khoản ${CURRENT_USER.name}`}
+                  aria-label={`Tùy chọn tài khoản ${currentUser.name}`}
                   className="w-full flex items-center justify-between gap-2.5 px-2 py-1.5 rounded-[10px] bg-transparent hover:bg-[var(--surface-card-hover)] transition-colors text-left cursor-pointer"
                 >
                   <div className="flex items-center gap-2.5 min-w-0">
-                    {avatarFailed ? (
+                    {avatarFailed || !currentUser.avatarUrl ? (
                       <div className="w-9 h-9 rounded-full bg-[var(--surface-control)] text-[var(--accent-ink)] flex items-center justify-center text-[13px] font-bold shrink-0">
-                        NT
+                        {currentUser.name.split(/\s+/).slice(-2).map((part) => part[0]).join('').toUpperCase()}
                       </div>
                     ) : (
                       <img
-                        src={CURRENT_USER.avatarUrl}
-                        alt={CURRENT_USER.name}
+                        src={currentUser.avatarUrl}
+                        alt={currentUser.name}
                         referrerPolicy="no-referrer"
                         onError={() => setAvatarFailed(true)}
                         className="w-9 h-9 rounded-full object-cover shrink-0 bg-[var(--surface-control)]"
@@ -264,10 +264,10 @@ export function Sidebar() {
                     )}
                     <div className="min-w-0 flex flex-col">
                       <span className="text-[14px] leading-[20px] font-semibold text-[var(--text)] truncate">
-                        {CURRENT_USER.name}
+                        {currentUser.name}
                       </span>
                       <span className="text-[12px] leading-[16px] text-[var(--text-muted)] truncate">
-                        {CURRENT_USER.role}
+                        {currentUser.email || currentUser.role}
                       </span>
                     </div>
                   </div>
@@ -278,18 +278,18 @@ export function Sidebar() {
               ) : (
                 <button
                   type="button"
-                  aria-label={`Tài khoản ${CURRENT_USER.name}`}
-                  title={CURRENT_USER.name}
+                  aria-label={`Tài khoản ${currentUser.name}`}
+                  title={currentUser.name}
                   className="w-10 h-10 rounded-full flex items-center justify-center bg-transparent hover:bg-[var(--surface-card-hover)] transition-colors shrink-0 cursor-pointer"
                 >
-                  {avatarFailed ? (
+                  {avatarFailed || !currentUser.avatarUrl ? (
                     <div className="w-9 h-9 rounded-full bg-[var(--surface-control)] text-[var(--accent-ink)] flex items-center justify-center text-[13px] font-bold shrink-0">
-                      NT
+                      {currentUser.name.split(/\s+/).slice(-2).map((part) => part[0]).join('').toUpperCase()}
                     </div>
                   ) : (
                     <img
-                      src={CURRENT_USER.avatarUrl}
-                      alt={CURRENT_USER.name}
+                      src={currentUser.avatarUrl}
+                      alt={currentUser.name}
                       referrerPolicy="no-referrer"
                       onError={() => setAvatarFailed(true)}
                       className="w-9 h-9 rounded-full object-cover shrink-0 bg-[var(--surface-control)]"
@@ -306,10 +306,10 @@ export function Sidebar() {
             >
               <div className="px-2.5 py-1.5 flex flex-col">
                 <span className="text-[14px] leading-[20px] font-semibold text-[var(--text)] truncate">
-                  {CURRENT_USER.name}
+                  {currentUser.name}
                 </span>
                 <span className="text-[12px] leading-[16px] text-[var(--text-muted)] truncate">
-                  {CURRENT_USER.role}
+                  {currentUser.email || currentUser.role}
                 </span>
               </div>
 
