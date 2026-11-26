@@ -1115,11 +1115,6 @@ export function ModelSettingsDialog({ open, onClose }: ModelSettingsDialogProps)
                     )}
                   </div>
 
-                  <label className="flex items-center gap-2 text-[13px] text-[var(--text-body)]">
-                    <input type="checkbox" checked={draft.isLocalRuntime || false}
-                      onChange={(e) => setDraft((prev) => prev ? { ...prev, isLocalRuntime: e.target.checked } : prev)} />
-                    Máy chủ cục bộ
-                  </label>
                   {formTestResult && (
                     <div
                       className={`rounded-[10px] px-3.5 py-2.5 text-[13px] leading-[18px] font-medium ${
