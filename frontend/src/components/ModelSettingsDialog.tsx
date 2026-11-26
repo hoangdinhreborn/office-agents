@@ -1118,9 +1118,8 @@ export function ModelSettingsDialog({ open, onClose }: ModelSettingsDialogProps)
                   <label className="flex items-center gap-2 text-[13px] text-[var(--text-body)]">
                     <input type="checkbox" checked={draft.isLocalRuntime || false}
                       onChange={(e) => setDraft((prev) => prev ? { ...prev, isLocalRuntime: e.target.checked } : prev)} />
-                    Máy chủ cục bộ (chỉ bật nếu model thực sự chạy local)
+                    Máy chủ cục bộ
                   </label>
-                  <p className="text-[12px] text-[var(--text-muted)]">Lưu cấu hình không gọi provider. Mỗi provider dùng cấu hình xác thực riêng.</p>
                   {formTestResult && (
                     <div
                       className={`rounded-[10px] px-3.5 py-2.5 text-[13px] leading-[18px] font-medium ${

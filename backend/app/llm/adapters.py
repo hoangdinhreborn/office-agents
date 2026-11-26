@@ -10,6 +10,9 @@ from app.schemas.llm import ModelConfig, ProviderConfig, token_count
 from app.services.llm_settings import LLMError
 
 
+LOOPBACK_HOSTS = {"localhost", "127.0.0.1", "::1"}
+
+
 @dataclass
 class Completion:
     content: str
@@ -27,6 +30,13 @@ class Adapter(Protocol):
 
 def endpoint(provider: ProviderConfig, path: str) -> str:
     base = urlsplit(provider.base_url)
+    netloc = base.netloc
+    host_gateway = os.environ.get("LLM_LOOPBACK_HOST", "").strip()
+    if host_gateway and base.hostname in LOOPBACK_HOSTS:
+        # In Docker, the configured loopback address refers to the machine running the provider.
+        netloc = host_gateway
+        if base.port is not None:
+            netloc += f":{base.port}"
     base_path = base.path.rstrip("/")
     # The field accepts an API root or the exact endpoint; preserve proxy prefixes.
     endings = ("/chat/completions", "/responses", "/messages", "/models", "/api/chat", "/api/tags")
@@ -39,7 +49,7 @@ def endpoint(provider: ProviderConfig, path: str) -> str:
             base_path = base_path[:-3]
         if base_path.endswith("/api"):
             base_path = base_path[:-4]
-    return urlunsplit((base.scheme, base.netloc, base_path + path, "", ""))
+    return urlunsplit((base.scheme, netloc, base_path + path, "", ""))
 
 
 def headers(provider: ProviderConfig) -> dict[str, str]:
@@ -81,6 +91,10 @@ def request_json(provider: ProviderConfig, method: str, path: str, *, payload: d
     except httpx.TimeoutException as exc:
         raise LLMError("Provider quá thời gian chờ; chưa tự gửi lại yêu cầu.", 504) from exc
     except httpx.RequestError as exc:
+        if os.environ.get("LLM_LOOPBACK_HOST", "").strip() and urlsplit(provider.base_url).hostname in LOOPBACK_HOSTS:
+            raise LLMError(
+                "Backend không kết nối được provider trên máy host. Kiểm tra cổng và địa chỉ lắng nghe của provider từ Docker."
+            ) from exc
         raise LLMError("Không kết nối được endpoint. Kiểm tra địa chỉ và dịch vụ provider.") from exc
     except ValueError as exc:
         raise LLMError("Provider không trả JSON hợp lệ. Kiểm tra URL cơ sở và giao thức API.") from exc

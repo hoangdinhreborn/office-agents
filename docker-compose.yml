@@ -7,6 +7,7 @@ services:
       APP_NAME: deskhive-harness
       DATABASE_URL: sqlite:///./data/assistant.db
       OLLAMA_BASE_URL: http://host.docker.internal:11434
+      LLM_LOOPBACK_HOST: host.docker.internal
     ports:
       - "127.0.0.1:8000:8000"
     volumes:
